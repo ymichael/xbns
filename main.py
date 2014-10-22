@@ -32,7 +32,7 @@ def main(args):
 
     # Other layers.
     datalink_layer = layers.datalink.DataLink()
-    network_layer = layers.network.Network()
+    network_layer = layers.network.Network(myid)
     transport_layer = layers.transport.Transport()
     application_layer = layers.application.Application()
 
@@ -51,7 +51,7 @@ def main(args):
         networking_stack.start()
         while True:
             time.sleep(1)
-            application_layer.send("YO")
+            application_layer.send("0" * 1000)
     except (KeyboardInterrupt, SystemExit):
         pass
 
