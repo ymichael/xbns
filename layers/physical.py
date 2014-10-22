@@ -6,6 +6,7 @@ BROADCAST_ADDRESS = "\xFF\xFF"
 
 
 class Physical(base.BaseLayer):
+    """Physical layer, interfaces with the XBee."""
     def __init__(self, xbee):
         super(Physical, self).__init__();
         self.xbee = xbee
@@ -17,7 +18,8 @@ class Physical(base.BaseLayer):
         self.broadcast(data)
 
     def broadcast(self, data):
-        # TODO: Check the length of data (max length of data is 100 bytes)
+        # Maximum data size is 100.
+        assert len(data) <= 100
         self.xbee.tx(dest_addr=BROADCAST_ADDRESS, data=data)
 
     def listen_to_xbee(self):
