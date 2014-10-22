@@ -5,6 +5,7 @@ import struct
 class NetworkPDU(object):
     # https://docs.python.org/2/library/struct.html
     # B: unsigned char, 1 byte.
+    # h: unsigned short, 2 bytes.
     # I: unsigned int, 4 bytes.
     # Q: unsigned long long, 8 bytes.
     HEADER_FORMAT = "hBII"
