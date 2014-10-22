@@ -20,4 +20,4 @@ start:
 		--port=$(SERIALPORT)
 
 rsync:
-	rsync -avz --exclude=.venv --exclude=*.pyc --exclude=Makefile . michael@bone:~/xbns
+	rsync -avz --exclude=.git --exclude=.venv --exclude=*.pyc --exclude=Makefile . michael@bone:~/xbns
