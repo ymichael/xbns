@@ -3,7 +3,11 @@ import struct
 
 
 class NetworkPDU(object):
-    HEADER_FORMAT = "QQQQ"
+    # https://docs.python.org/2/library/struct.html
+    # B: unsigned char, 1 byte.
+    # I: unsigned int, 4 bytes.
+    # Q: unsigned long long, 8 bytes.
+    HEADER_FORMAT = "hBII"
     HEADER_SIZE = struct.calcsize(HEADER_FORMAT)
     MAX_DATA_SIZE = 100 - HEADER_SIZE
 
@@ -30,7 +34,8 @@ class Network(base.BaseLayer):
         self.buffer = {}
 
     def get_next_message_id(self):
-        self.last_message_id += 1
+        # restrict message id to be from 1 - 255
+        self.last_message_id = (self.last_message_id + 1) % 255
         return self.last_message_id
 
     def process_incoming(self, data):
