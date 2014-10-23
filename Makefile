@@ -19,5 +19,11 @@ start:
 		--myid=$(MYID) \
 		--port=$(SERIALPORT)
 
+# rsync repository with beaglebone.
 rsync:
-	rsync -avz --exclude=.git --exclude=.venv --exclude=*.pyc --exclude=Makefile . michael@bone:~/xbns
+	rsync -avz \
+		--exclude=.git \
+		--exclude=.venv \
+		--exclude=*.pyc \
+		--exclude=Makefile \
+		. michael@bone:~/xbns
