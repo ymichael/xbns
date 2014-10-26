@@ -39,17 +39,14 @@ class Network(base.BaseLayer):
         self.last_message_id = (self.last_message_id + 1) % 255
         return self.last_message_id
 
-    def process_incoming(self, data):
-        self.deserialize_chunk(data)
-
     def process_outgoing(self, data):
         message_id = self.get_next_message_id()
         total_size = len(data)
         for idx, chunk in enumerate(self._chunk_data(data)):
-            serialized_chunk = self.serialize_chunk(message_id, total_size, idx, chunk)
+            serialized_chunk = NetworkPDU.serialize(self.id, message_id, total_size, idx, chunk)
             self.outgoing_queue.put(serialized_chunk)
 
-    def deserialize_chunk(self, serialized_chunk):
+    def process_incoming(self, serialized_chunk):
         source_id, message_id, total_size, piece_no, chunk = NetworkPDU.deserialize(serialized_chunk)
         key = (source_id, message_id)
         buffered_chunks = self.buffer.get(key, [])
@@ -65,9 +62,6 @@ class Network(base.BaseLayer):
         self.incoming_queue.put(data)
         del self.buffer[key]
 
-    def serialize_chunk(self, message_id, total_size, piece_no, chunk):
-        return NetworkPDU.serialize(self.id, message_id, total_size, piece_no, chunk)
-
     def _chunk_data(self, data):
         """Chunk data into lengths no greater than MAX_DATA_SIZE."""
         chunks = []
@@ -77,4 +71,3 @@ class Network(base.BaseLayer):
             chunks.append(chunk)
             current_idx += NetworkPDU.MAX_DATA_SIZE
         return chunks
-
