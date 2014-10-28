@@ -6,11 +6,12 @@ import layers
 
 class TestPhysical(object):
     def setup(self):
+        self.addr = 1
         self.id = 1
         self.panid = 2
         self.channel = 11
         self.xbee =  mock()
-        self.physical_layer = layers.physical.Physical(self.xbee)
+        self.physical_layer = layers.physical.Physical(self.addr, self.xbee)
 
     def test_set_myid(self):
         self.physical_layer.set_myid(self.id)

@@ -22,17 +22,20 @@ def main(args):
     if not (11 <= channel <= 26):
         raise ValueError("Expected Channel id between 11 and 26, got: %s" % args.channel)
 
+    # set addr as the id.
+    addr = myid
+
     # Configure the physical layer.
     serial_object = serial.Serial(args.port, args.baudrate)
     xbee_module = xbee.XBee(serial_object)
-    physical_layer = layers.physical.Physical(xbee_module)
+    physical_layer = layers.physical.Physical(addr, xbee_module)
     physical_layer.set_myid(myid)
     physical_layer.set_panid(panid)
     physical_layer.set_channel(channel)
 
     # Other layers.
-    datalink_layer = layers.datalink.DataLink(myid)
-    application_layer = layers.application.Application()
+    datalink_layer = layers.datalink.DataLink(addr)
+    application_layer = layers.application.Application(addr)
 
     # Start networking stack.
     networking_stack = stack.Stack()

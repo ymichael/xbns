@@ -5,10 +5,10 @@ import layers
 
 class TestDataLink(object):
     def setup(self):
-        self.id = 123
+        self.addr = 123
         self.short_data = "This is a message."
         self.long_data = "This is a message." * 200
-        self.data_link_layer = layers.datalink.DataLink(self.id)
+        self.data_link_layer = layers.datalink.DataLink(self.addr)
 
     def teardown(self):
         pass

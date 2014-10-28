@@ -4,7 +4,8 @@ import threading
 
 class BaseLayer(object):
     """Base class for each layer."""
-    def __init__(self):
+    def __init__(self, addr):
+        self.addr = addr
         # From this layer to a higher layer.
         self._incoming_queue = queue.Queue()
         # From this layer to a lower layer.

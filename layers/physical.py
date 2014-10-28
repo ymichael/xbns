@@ -7,8 +7,9 @@ BROADCAST_ADDRESS = "\xFF\xFF"
 
 class Physical(base.BaseLayer):
     """Physical layer, interfaces with the XBee."""
-    def __init__(self, xbee):
-        super(Physical, self).__init__();
+    def __init__(self, addr, xbee):
+        super(Physical, self).__init__(addr);
+        self.addr = addr
         self.xbee = xbee
         self.panid = None
         self.myid = None
