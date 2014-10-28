@@ -18,6 +18,8 @@ class Physical(base.BaseLayer):
 
     def process_outgoing(self, data, metadata=None):
         self.broadcast(data)
+        # TODO: Figure out a good sleep interval here.
+        # Packet loss is fairly high if not.
 
     def broadcast(self, data):
         # TODO: Some logging here.
