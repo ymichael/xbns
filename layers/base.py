@@ -1,6 +1,15 @@
 import Queue as queue
 import threading
 
+ 
+class MetaData(object):
+    # Default dest_addr is a broadcast.
+    # 65535 => \xff\xff
+    DEST_ADDR = 65535
+
+    def __init__(self):
+        self.dest_addr = self.DEST_ADDR
+
 
 class BaseLayer(object):
     """Base class for each layer."""

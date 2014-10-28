@@ -3,12 +3,12 @@ import struct
 
 
 class DataLinkPDU(object):
-    # source_addr: h
-    # dest_addr: h
+    # source_addr: H
+    # dest_addr: H
     # message_id: B
     # total_size: I
     # piece_number: I
-    HEADER_FORMAT = "hhBII"
+    HEADER_FORMAT = "HHBII"
     # https://docs.python.org/2/library/struct.html
     # B: unsigned char, 1 byte.
     # h: unsigned short, 2 bytes.
@@ -64,8 +64,12 @@ class DataLink(base.BaseLayer):
     def process_outgoing(self, data, metadata=None):
         message_id = self.get_next_message_id()
         total_size = len(data)
-        # TODO: Thread this through.
-        dest_addr = 0
+
+        # Get values from metadata.
+        dest_addr = base.MetaData.DEST_ADDR
+        if metadata is not None:
+            dest_addr = metadata.dest_addr
+
         for piece_no, chunk in enumerate(self._chunk_data(data)):
             data_unit = DataLinkPDU(self.addr, dest_addr, message_id, total_size,
                 piece_no, chunk)
