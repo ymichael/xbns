@@ -11,7 +11,7 @@ class DataLinkPDU(object):
     HEADER_FORMAT = "HHBII"
     # https://docs.python.org/2/library/struct.html
     # B: unsigned char, 1 byte.
-    # h: unsigned short, 2 bytes.
+    # H: unsigned short, 2 bytes.
     # I: unsigned int, 4 bytes.
     HEADER_SIZE = struct.calcsize(HEADER_FORMAT)
     MAX_DATA_SIZE = 100 - HEADER_SIZE
