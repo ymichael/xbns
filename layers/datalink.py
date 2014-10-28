@@ -45,7 +45,8 @@ class DataLink(base.BaseLayer):
         super(DataLink, self).__init__(addr)
         self.last_message_id = 0
         self.buffer = {}
-        self.seen_buffer = {}
+        self.seen_buffer = set()
+        self.forward_buffer = set()
 
     def get_next_message_id(self):
         # restrict message id to be from 1 - 255
@@ -72,8 +73,8 @@ class DataLink(base.BaseLayer):
             dest_addr = metadata.dest_addr
 
         for piece_no, chunk in enumerate(self._chunk_data(data)):
-            data_unit = DataLinkPDU(self.addr, dest_addr, message_id, total_size,
-                piece_no, chunk)
+            data_unit = DataLinkPDU(self.addr, dest_addr, message_id,
+                total_size, piece_no, chunk)
             self.put_outgoing(data_unit.to_string(), metadata)
 
     def _maybe_forward_data(self, data_unit):
@@ -83,29 +84,30 @@ class DataLink(base.BaseLayer):
         if data_unit.dest_addr == self.addr:
             return
         # Ignore packet if we've already received it.
-        key = (data_unit.source_addr, data_unit.message_id)
-        if key in self.seen_buffer:
-            return
-        # Ignore packet if we've already buffered it.
-        buffered = self.buffer.get(key)
-        if buffered is not None and data_unit.piece_no in buffered:
+        key = (data_unit.source_addr, data_unit.message_id,
+            data_unit.piece_no)
+        if key in self.forward_buffer:
             return
         # Forward packet if we've not seen this.
         # TODO: Add TTL and decrement?
+        self.forward_buffer.add(key)
         self.put_outgoing(data_unit.to_string())
 
     def _maybe_buffer_incoming(self, data_unit, metadata=None):
+        # Only buffer packets that are intended for us.
+        if data_unit.dest_addr != base.MetaData.BROADCAST_ADDR and \
+            data_unit.dest_addr != self.addr:
+            return
         key = (data_unit.source_addr, data_unit.message_id)
         if key in self.seen_buffer:
             return
-
         buffered_chunks = self.buffer.get(key, {})
         buffered_chunks[data_unit.piece_no] = data_unit.chunk
         self.buffer[key] = buffered_chunks
         size = sum((len(x) for x in buffered_chunks.values()))
         if size == data_unit.total_size:
             del self.buffer[key]
-            self.seen_buffer[key] = True
+            self.seen_buffer.add(key)
             keys = sorted(buffered_chunks.keys())
             data = "".join(buffered_chunks[x] for x in keys)
             self.put_incoming(data, metadata)

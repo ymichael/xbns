@@ -47,6 +47,7 @@ class TestDataLink(object):
         while not self.data_link_layer.is_outgoing_empty():
             chunk, metadata = self.data_link_layer.get_outgoing()
             self.data_link_layer.process_incoming(chunk)
+
         ok_(not self.data_link_layer.is_incoming_empty())
         data, metadata = self.data_link_layer.get_incoming()
         eq_(self.short_data, data)
@@ -56,9 +57,17 @@ class TestDataLink(object):
         while not self.data_link_layer.is_outgoing_empty():
             chunk, metadata = self.data_link_layer.get_outgoing()
             self.data_link_layer.process_incoming(chunk)
+
         ok_(not self.data_link_layer.is_incoming_empty())
         data, metadata = self.data_link_layer.get_incoming()
         eq_(self.long_data, data)
+
+    def test_should_not_receive_if_not_recipient(self):
+        data_unit = layers.datalink.DataLinkPDU(
+            self.addr, layers.base.MetaData.BROADCAST_ADDR,
+            self.message_id, 100, 1, self.short_data)
+        self.data_link_layer.process_incoming(data_unit.to_string())
+        ok_(self.data_link_layer.is_incoming_empty())
 
     def test_should_not_forward_broadcast(self):
         data_unit = layers.datalink.DataLinkPDU(
@@ -104,11 +113,9 @@ class TestDataLink(object):
             self.message_id, len(self.short_data), 1, self.short_data)
         self.data_link_layer.process_incoming(data_unit.to_string())
         ok_(not self.data_link_layer.is_outgoing_empty())
-        ok_(not self.data_link_layer.is_incoming_empty())
         # Clear both queues.
         chunk, metadata = self.data_link_layer.get_outgoing()
-        chunk, metadata = self.data_link_layer.get_incoming()
-        eq_(self.short_data, chunk)
+        eq_(data_unit.to_string(), chunk)
         # Receive same data unit.
         self.data_link_layer.process_incoming(data_unit.to_string())
         ok_(self.data_link_layer.is_outgoing_empty())
