@@ -75,20 +75,25 @@ class DataLink(base.BaseLayer):
                 piece_no, chunk)
             self.put_outgoing(data_unit.to_string(), metadata)
 
+    def _maybe_route_data(self, data_unit):
+        if data_unit.dest_addr == base.MetaData.BROADCAST_ADDR:
+            return
+        # TODO:
+        # Forward packet if we've not seen this.
+
+    def _buffer_incoming(self, data_unit, metadata=None):
+        key = (data_unit.source_addr, data_unit.message_id)
+        buffered_chunks = self.buffer.get(key, {})
+        buffered_chunks[data_unit.piece_no] = data_unit.chunk
+        self.buffer[key] = buffered_chunks
+        size = sum((len(x) for x in buffered_chunks.values()))
+        if size == data_unit.total_size:
+            del self.buffer[key]
+            data = "".join((buffered_chunks[x] for x in sorted(buffered_chunks.keys())))
+            self.put_incoming(data, metadata)
+
     def process_incoming(self, data, metadata=None):
         data_unit = DataLinkPDU.from_string(data)
         # TODO: Add checksum/verify step.
-        key = (data_unit.source_addr, data_unit.message_id)
-
-        # TODO: Fix this. Use offset instead?
-        buffered_chunks = self.buffer.get(key, [])
-        buffered_chunks.append((data_unit.piece_no, data_unit.chunk))
-        buffered_chunks.sort()
-        self.buffer[key] = buffered_chunks
-        # If the final piece is in.
-        size = sum((len(x[1]) for x in buffered_chunks))
-        if size == data_unit.total_size:
-            del self.buffer[key]
-            reformed_fragments = "".join((x[1] for x in buffered_chunks))
-            self.put_incoming(reformed_fragments, metadata)
-
+        self._maybe_route_data(data_unit)
+        self._buffer_incoming(data_unit, metadata)

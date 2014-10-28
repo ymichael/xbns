@@ -3,9 +3,11 @@ import threading
 
  
 class MetaData(object):
-    # Default dest_addr is a broadcast.
     # 65535 => \xff\xff
-    DEST_ADDR = 65535
+    BROADCAST_ADDR = 65535
+
+    # Default dest_addr is a broadcast.
+    DEST_ADDR = BROADCAST_ADDR
 
     def __init__(self):
         self.dest_addr = self.DEST_ADDR
