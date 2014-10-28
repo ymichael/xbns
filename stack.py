@@ -13,7 +13,8 @@ class Stack(threading.Thread):
     def run(self):
         """Binds each layer to its previous and next layer.
 
-        Starts listening on the respective queues."""
+        Starts listening on the respective queues.
+        """
         for index, layer in enumerate(self.layers):
             incoming_layer = self.layers[index - 1] if index != 0 else None
             outgoing_layer = self.layers[index + 1] if \
