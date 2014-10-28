@@ -1,4 +1,5 @@
 import Queue as queue
+import logging
 import threading
 
  
@@ -11,11 +12,23 @@ class MetaData(object):
 
     def __init__(self):
         self.dest_addr = self.DEST_ADDR
+        self.source_addr = None
+        self.sender_addr = None
 
 
 class BaseLayer(object):
     """Base class for each layer."""
+
     def __init__(self, addr):
+        # Each layer has a logger that logs to the console.
+        self.logger = logging.getLogger(self.__class__.__name__)
+        # TODO: Refactor debug level as a cli argument.
+        self.logger.setLevel(logging.DEBUG)
+        handler = logging.StreamHandler()
+        handler.setFormatter(
+            logging.Formatter("%(name)-10s - %(levelname)-8s: %(message)s"))
+        self.logger.addHandler(handler)
+
         self.addr = addr
         # From this layer to a higher layer.
         self._incoming_queue = queue.Queue()

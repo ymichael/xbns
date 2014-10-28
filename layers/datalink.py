@@ -39,7 +39,8 @@ class DataLinkPDU(object):
 class DataLink(base.BaseLayer):
     """DataLink layer.
 
-    Converts variable sized data into fixed sized packets.
+    - Converts variable sized data into fixed sized packets.
+    - Forwards packets along the network.
     """
     def __init__(self, addr):
         super(DataLink, self).__init__(addr)
@@ -98,6 +99,11 @@ class DataLink(base.BaseLayer):
         if data_unit.dest_addr != base.MetaData.BROADCAST_ADDR and \
             data_unit.dest_addr != self.addr:
             return
+
+        # Logging to see the packet loss rate.
+        self.logger.debug("Incoming: %s, %s, %s" % \
+            (data_unit.source_addr, data_unit.message_id, data_unit.piece_no))
+
         key = (data_unit.source_addr, data_unit.message_id)
         if key in self.seen_buffer:
             return
@@ -110,6 +116,9 @@ class DataLink(base.BaseLayer):
             self.seen_buffer.add(key)
             keys = sorted(buffered_chunks.keys())
             data = "".join(buffered_chunks[x] for x in keys)
+            # propagate metadata 
+            metadata = metadata or base.MetaData()
+            metadata.source_addr = data_unit.source_addr
             self.put_incoming(data, metadata)
 
     def process_incoming(self, data, metadata=None):
