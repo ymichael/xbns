@@ -43,7 +43,6 @@ class DataLink(base.BaseLayer):
     """
     def __init__(self, addr):
         super(DataLink, self).__init__(addr)
-        self.addr = addr
         self.last_message_id = 0
         self.buffer = {}
         self.seen_buffer = {}
