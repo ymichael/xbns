@@ -39,15 +39,15 @@ class Network(base.BaseLayer):
         self.last_message_id = (self.last_message_id + 1) % 255
         return self.last_message_id
 
-    def process_outgoing(self, data):
+    def process_outgoing(self, data, metadata=None):
         message_id = self.get_next_message_id()
         total_size = len(data)
         for idx, chunk in enumerate(self._chunk_data(data)):
             serialized_chunk = NetworkPDU.serialize(self.id, message_id, total_size, idx, chunk)
-            self.outgoing_queue.put(serialized_chunk)
+            self.put_outgoing(serialized_chunk)
 
-    def process_incoming(self, serialized_chunk):
-        source_id, message_id, total_size, piece_no, chunk = NetworkPDU.deserialize(serialized_chunk)
+    def process_incoming(self, data, metadata=None):
+        source_id, message_id, total_size, piece_no, chunk = NetworkPDU.deserialize(data)
         key = (source_id, message_id)
         buffered_chunks = self.buffer.get(key, [])
         buffered_chunks.append((piece_no, chunk))
@@ -59,7 +59,7 @@ class Network(base.BaseLayer):
         if size != total_size:
             return
         data = "".join((x[1] for x in buffered_chunks))
-        self.incoming_queue.put(data)
+        self.put_incoming(data)
         del self.buffer[key]
 
     def _chunk_data(self, data):

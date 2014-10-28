@@ -21,15 +21,17 @@ class TestNetwork(object):
     def test_round_trip_short(self):
         self.network_layer.process_outgoing(self.short_data)
         while not self.network_layer.is_outgoing_empty():
-            chunk = self.network_layer.get_outgoing()
+            chunk, metadata = self.network_layer.get_outgoing()
             self.network_layer.process_incoming(chunk)
         ok_(not self.network_layer.is_incoming_empty())
-        eq_(self.short_data, self.network_layer.get_incoming())
+        data, metadata = self.network_layer.get_incoming()
+        eq_(self.short_data, data)
 
     def test_round_trip_long(self):
         self.network_layer.process_outgoing(self.long_data)
         while not self.network_layer.is_outgoing_empty():
-            chunk = self.network_layer.get_outgoing()
+            chunk, metadata = self.network_layer.get_outgoing()
             self.network_layer.process_incoming(chunk)
         ok_(not self.network_layer.is_incoming_empty())
-        eq_(self.long_data, self.network_layer.get_incoming())
+        data, metadata = self.network_layer.get_incoming()
+        eq_(self.long_data, data)

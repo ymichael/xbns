@@ -14,10 +14,11 @@ class Physical(base.BaseLayer):
         self.myid = None
         self.channel = None
 
-    def process_outgoing(self, data):
+    def process_outgoing(self, data, metadata=None):
         self.broadcast(data)
 
     def broadcast(self, data):
+        # TODO: Some logging here.
         # Maximum data size is 100.
         assert len(data) <= 100
         self.xbee.tx(dest_addr=BROADCAST_ADDRESS, data=data)
@@ -25,7 +26,7 @@ class Physical(base.BaseLayer):
     def listen_to_xbee(self):
         while True:
             frame = self.xbee.wait_read_frame()
-            self.incoming_queue.put(frame.get('rf_data'))
+            self.put_incoming(frame.get('rf_data'))
 
     def start(self, incoming_layer=None, outgoing_layer=None):
         super(Physical, self).start(outgoing_layer=outgoing_layer)
