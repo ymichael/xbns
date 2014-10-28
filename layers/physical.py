@@ -30,7 +30,10 @@ class Physical(base.BaseLayer):
     def listen_to_xbee(self):
         while True:
             frame = self.xbee.wait_read_frame()
-            self.put_incoming(frame.get('rf_data'))
+            if frame.get('id') == "rx":
+                metadata = base.MetaData()
+                metadata.sender_addr = struct.unpack("H", frame.get('source_addr'))[0]
+                self.put_incoming(frame.get('rf_data'), metadata)
 
     def start(self, incoming_layer=None, outgoing_layer=None):
         super(Physical, self).start(outgoing_layer=outgoing_layer)
