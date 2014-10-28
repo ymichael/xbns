@@ -45,6 +45,7 @@ class DataLink(base.BaseLayer):
         self.addr = addr
         self.last_message_id = 0
         self.buffer = {}
+        self.seen_buffer = {}
 
     def get_next_message_id(self):
         # restrict message id to be from 1 - 255
@@ -75,25 +76,38 @@ class DataLink(base.BaseLayer):
                 piece_no, chunk)
             self.put_outgoing(data_unit.to_string(), metadata)
 
-    def _maybe_route_data(self, data_unit):
+    def _maybe_forward_data(self, data_unit):
         if data_unit.dest_addr == base.MetaData.BROADCAST_ADDR:
             return
-        # TODO:
-        # Forward packet if we've not seen this.
-
-    def _buffer_incoming(self, data_unit, metadata=None):
+        # Ignore packet if we've already received it.
         key = (data_unit.source_addr, data_unit.message_id)
+        if key in self.seen_buffer:
+            return
+        # Ignore packet if we've already buffered it.
+        buffered = self.buffer.get(key)
+        if buffered is not None and data_unit.piece_no in buffered:
+            return
+        # Forward packet if we've not seen this.
+        # TODO: Add TTL and decrement?
+        self.put_outgoing(data_unit.to_string())
+
+    def _maybe_buffer_incoming(self, data_unit, metadata=None):
+        key = (data_unit.source_addr, data_unit.message_id)
+        if key in self.seen_buffer:
+            return
+
         buffered_chunks = self.buffer.get(key, {})
         buffered_chunks[data_unit.piece_no] = data_unit.chunk
         self.buffer[key] = buffered_chunks
         size = sum((len(x) for x in buffered_chunks.values()))
         if size == data_unit.total_size:
             del self.buffer[key]
+            self.seen_buffer[key] = True
             data = "".join((buffered_chunks[x] for x in sorted(buffered_chunks.keys())))
             self.put_incoming(data, metadata)
 
     def process_incoming(self, data, metadata=None):
         data_unit = DataLinkPDU.from_string(data)
         # TODO: Add checksum/verify step.
-        self._maybe_route_data(data_unit)
-        self._buffer_incoming(data_unit, metadata)
+        self._maybe_forward_data(data_unit)
+        self._maybe_buffer_incoming(data_unit, metadata)
