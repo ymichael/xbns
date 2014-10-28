@@ -31,9 +31,7 @@ def main(args):
     physical_layer.set_channel(channel)
 
     # Other layers.
-    datalink_layer = layers.datalink.DataLink()
-    network_layer = layers.network.Network(myid)
-    transport_layer = layers.transport.Transport()
+    datalink_layer = layers.datalink.DataLink(myid)
     application_layer = layers.application.Application()
 
     # Start networking stack.
@@ -41,8 +39,6 @@ def main(args):
     networking_stack.set_layers([
         physical_layer,
         datalink_layer,
-        network_layer,
-        transport_layer,
         application_layer,
     ])
 
