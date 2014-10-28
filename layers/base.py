@@ -1,4 +1,5 @@
 import Queue as queue
+import threading
 
 
 class BaseLayer(object):
@@ -42,3 +43,25 @@ class BaseLayer(object):
 
     def process_outgoing(self, data):
         raise NotImplementedError()
+
+    def start(self, incoming_layer=None, outgoing_layer=None):
+        """Starts threads for either layer, if given."""
+        if incoming_layer is not None:
+            incoming = threading.Thread(
+                    target=self.start_incoming, args=(incoming_layer,))
+            incoming.setDaemon(True)
+            incoming.start()
+
+        if outgoing_layer is not None:
+            outgoing = threading.Thread(
+                    target=self.start_outgoing, args=(outgoing_layer,))
+            outgoing.setDaemon(True)
+            outgoing.start()
+
+    def start_incoming(self, incoming_layer):
+        while True:
+            self.process_incoming(incoming_layer.get_incoming())
+
+    def start_outgoing(self, outgoing_layer):
+        while True:
+            self.process_outgoing(outgoing_layer.get_outgoing())

@@ -47,7 +47,6 @@ def main(args):
     ])
 
     try:
-        physical_layer.start()
         networking_stack.start()
         while True:
             time.sleep(1)

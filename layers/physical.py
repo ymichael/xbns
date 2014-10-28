@@ -27,7 +27,8 @@ class Physical(base.BaseLayer):
             frame = self.xbee.wait_read_frame()
             self.incoming_queue.put(frame.get('rf_data'))
 
-    def start(self):
+    def start(self, incoming_layer=None, outgoing_layer=None):
+        super(Physical, self).start(outgoing_layer=outgoing_layer)
         t = threading.Thread(target=self.listen_to_xbee)
         t.setDaemon(True)
         t.start()
