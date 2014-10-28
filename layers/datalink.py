@@ -16,7 +16,8 @@ class DataLinkPDU(object):
     HEADER_SIZE = struct.calcsize(HEADER_FORMAT)
     MAX_DATA_SIZE = 100 - HEADER_SIZE
 
-    def __init__(self, source_addr, dest_addr, message_id, total_size, piece_no, chunk):
+    def __init__(self, source_addr, dest_addr, message_id, total_size, piece_no,
+            chunk):
         self.source_addr = source_addr
         self.dest_addr = dest_addr
         self.message_id = message_id
@@ -103,7 +104,8 @@ class DataLink(base.BaseLayer):
         if size == data_unit.total_size:
             del self.buffer[key]
             self.seen_buffer[key] = True
-            data = "".join((buffered_chunks[x] for x in sorted(buffered_chunks.keys())))
+            keys = sorted(buffered_chunks.keys())
+            data = "".join(buffered_chunks[x] for x in keys)
             self.put_incoming(data, metadata)
 
     def process_incoming(self, data, metadata=None):
