@@ -80,6 +80,9 @@ class DataLink(base.BaseLayer):
     def _maybe_forward_data(self, data_unit):
         if data_unit.dest_addr == base.MetaData.BROADCAST_ADDR:
             return
+        # Do not forward if we are the intended recipient.
+        if data_unit.dest_addr == self.addr:
+            return
         # Ignore packet if we've already received it.
         key = (data_unit.source_addr, data_unit.message_id)
         if key in self.seen_buffer:

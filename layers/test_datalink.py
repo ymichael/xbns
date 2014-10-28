@@ -6,12 +6,36 @@ import layers
 class TestDataLink(object):
     def setup(self):
         self.addr = 123
+        self.dest_addr = 124
+        self.message_id = 10
         self.short_data = "This is a message."
         self.long_data = "This is a message." * 200
         self.data_link_layer = layers.datalink.DataLink(self.addr)
 
     def teardown(self):
         pass
+
+    def test_pdu_constructor(self):
+        data_unit = layers.datalink.DataLinkPDU(self.addr, self.dest_addr,
+            self.message_id, 100, 1, self.short_data)
+        eq_(self.addr, data_unit.source_addr)
+        eq_(self.dest_addr, data_unit.dest_addr)
+        eq_(self.message_id, data_unit.message_id)
+        eq_(100, data_unit.total_size)
+        eq_(1, data_unit.piece_no)
+        eq_(self.short_data, data_unit.chunk)
+
+    def test_pdu_round_trip(self):
+        data_unit = layers.datalink.DataLinkPDU(self.addr, self.dest_addr,
+            self.message_id, 100, 1, self.short_data)
+        data_unit = \
+            layers.datalink.DataLinkPDU.from_string(data_unit.to_string())
+        eq_(self.addr, data_unit.source_addr)
+        eq_(self.dest_addr, data_unit.dest_addr)
+        eq_(self.message_id, data_unit.message_id)
+        eq_(100, data_unit.total_size)
+        eq_(1, data_unit.piece_no)
+        eq_(self.short_data, data_unit.chunk)
 
     def test_get_next_message_id(self):
         eq_(1, self.data_link_layer.get_next_message_id())
@@ -35,3 +59,56 @@ class TestDataLink(object):
         ok_(not self.data_link_layer.is_incoming_empty())
         data, metadata = self.data_link_layer.get_incoming()
         eq_(self.long_data, data)
+
+    def test_should_not_forward_broadcast(self):
+        data_unit = layers.datalink.DataLinkPDU(
+            self.addr, layers.base.MetaData.BROADCAST_ADDR,
+            self.message_id, 100, 1, self.short_data)
+        self.data_link_layer.process_incoming(data_unit.to_string())
+        ok_(self.data_link_layer.is_outgoing_empty())
+
+    def test_should_not_forward_if_recipient(self):
+        data_unit = layers.datalink.DataLinkPDU(
+            self.addr, self.addr, self.message_id, 100, 1, self.short_data)
+        self.data_link_layer.process_incoming(data_unit.to_string())
+        ok_(self.data_link_layer.is_outgoing_empty())
+
+    def test_should_not_forward_if_buffered(self):
+        data_unit = layers.datalink.DataLinkPDU(
+            self.addr, self.addr + 1,
+            self.message_id, 100, 1, self.short_data)
+        self.data_link_layer.process_incoming(data_unit.to_string())
+        ok_(not self.data_link_layer.is_outgoing_empty())
+        chunk, metadata = self.data_link_layer.get_outgoing()
+        self.data_link_layer.process_incoming(data_unit.to_string())
+        ok_(self.data_link_layer.is_outgoing_empty())
+
+    def test_should_forward(self):
+        data_unit = layers.datalink.DataLinkPDU(
+            self.addr, self.addr + 1,
+            self.message_id, len(self.short_data), 1, self.short_data)
+        self.data_link_layer.process_incoming(data_unit.to_string())
+        ok_(not self.data_link_layer.is_outgoing_empty())
+        chunk, metadata = self.data_link_layer.get_outgoing()
+        chunk = layers.datalink.DataLinkPDU.from_string(chunk)
+        eq_(data_unit.source_addr, chunk.source_addr)
+        eq_(data_unit.dest_addr, chunk.dest_addr)
+        eq_(data_unit.message_id, chunk.message_id)
+        eq_(data_unit.total_size, chunk.total_size)
+        eq_(data_unit.piece_no, chunk.piece_no)
+        eq_(data_unit.chunk, chunk.chunk)
+
+    def test_should_not_forward_if_seen(self):
+        data_unit = layers.datalink.DataLinkPDU(
+            self.addr, self.addr + 1,
+            self.message_id, len(self.short_data), 1, self.short_data)
+        self.data_link_layer.process_incoming(data_unit.to_string())
+        ok_(not self.data_link_layer.is_outgoing_empty())
+        ok_(not self.data_link_layer.is_incoming_empty())
+        # Clear both queues.
+        chunk, metadata = self.data_link_layer.get_outgoing()
+        chunk, metadata = self.data_link_layer.get_incoming()
+        eq_(self.short_data, chunk)
+        # Receive same data unit.
+        self.data_link_layer.process_incoming(data_unit.to_string())
+        ok_(self.data_link_layer.is_outgoing_empty())
