@@ -101,8 +101,8 @@ class DataLink(base.BaseLayer):
             return
 
         # Logging to see the packet loss rate.
-        self.logger.debug("Incoming: %s, %s, %s" % \
-            (data_unit.source_addr, data_unit.message_id, data_unit.piece_no))
+        # self.logger.debug("Incoming: %s, %s, %s" % \
+        #     (data_unit.source_addr, data_unit.message_id, data_unit.piece_no))
 
         key = (data_unit.source_addr, data_unit.message_id)
         if key in self.seen_buffer:
