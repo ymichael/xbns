@@ -42,8 +42,8 @@ class DataLink(base.BaseLayer):
     - Converts variable sized data into fixed sized packets.
     - Forwards packets along the network.
     """
-    def __init__(self, addr):
-        super(DataLink, self).__init__(addr)
+    def __init__(self):
+        super(DataLink, self).__init__()
         self.last_message_id = 0
         self.buffer = {}
         self.seen_buffer = set()

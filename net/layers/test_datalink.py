@@ -1,6 +1,7 @@
 from nose.tools import eq_
 from nose.tools import ok_
-import layers
+import base
+import datalink
 
 
 class TestDataLink(object):
@@ -10,13 +11,14 @@ class TestDataLink(object):
         self.message_id = 10
         self.short_data = "This is a message."
         self.long_data = "This is a message." * 200
-        self.data_link_layer = layers.datalink.DataLink(self.addr)
+        self.data_link_layer = datalink.DataLink()
+        self.data_link_layer.set_addr(self.addr)
 
     def teardown(self):
         pass
 
     def test_pdu_constructor(self):
-        data_unit = layers.datalink.DataLinkPDU(self.addr, self.dest_addr,
+        data_unit = datalink.DataLinkPDU(self.addr, self.dest_addr,
             self.message_id, 100, 1, self.short_data)
         eq_(self.addr, data_unit.source_addr)
         eq_(self.dest_addr, data_unit.dest_addr)
@@ -26,10 +28,9 @@ class TestDataLink(object):
         eq_(self.short_data, data_unit.chunk)
 
     def test_pdu_round_trip(self):
-        data_unit = layers.datalink.DataLinkPDU(self.addr, self.dest_addr,
+        data_unit = datalink.DataLinkPDU(self.addr, self.dest_addr,
             self.message_id, 100, 1, self.short_data)
-        data_unit = \
-            layers.datalink.DataLinkPDU.from_string(data_unit.to_string())
+        data_unit = datalink.DataLinkPDU.from_string(data_unit.to_string())
         eq_(self.addr, data_unit.source_addr)
         eq_(self.dest_addr, data_unit.dest_addr)
         eq_(self.message_id, data_unit.message_id)
@@ -63,27 +64,27 @@ class TestDataLink(object):
         eq_(self.long_data, data)
 
     def test_should_not_receive_if_not_recipient(self):
-        data_unit = layers.datalink.DataLinkPDU(
-            self.addr, layers.base.MetaData.BROADCAST_ADDR,
+        data_unit = datalink.DataLinkPDU(
+            self.addr, base.MetaData.BROADCAST_ADDR,
             self.message_id, 100, 1, self.short_data)
         self.data_link_layer.process_incoming(data_unit.to_string())
         ok_(self.data_link_layer.is_incoming_empty())
 
     def test_should_not_forward_broadcast(self):
-        data_unit = layers.datalink.DataLinkPDU(
-            self.addr, layers.base.MetaData.BROADCAST_ADDR,
+        data_unit = datalink.DataLinkPDU(
+            self.addr, base.MetaData.BROADCAST_ADDR,
             self.message_id, 100, 1, self.short_data)
         self.data_link_layer.process_incoming(data_unit.to_string())
         ok_(self.data_link_layer.is_outgoing_empty())
 
     def test_should_not_forward_if_recipient(self):
-        data_unit = layers.datalink.DataLinkPDU(
+        data_unit = datalink.DataLinkPDU(
             self.addr, self.addr, self.message_id, 100, 1, self.short_data)
         self.data_link_layer.process_incoming(data_unit.to_string())
         ok_(self.data_link_layer.is_outgoing_empty())
 
     def test_should_not_forward_if_buffered(self):
-        data_unit = layers.datalink.DataLinkPDU(
+        data_unit = datalink.DataLinkPDU(
             self.addr, self.addr + 1,
             self.message_id, 100, 1, self.short_data)
         self.data_link_layer.process_incoming(data_unit.to_string())
@@ -93,13 +94,13 @@ class TestDataLink(object):
         ok_(self.data_link_layer.is_outgoing_empty())
 
     def test_should_forward(self):
-        data_unit = layers.datalink.DataLinkPDU(
+        data_unit = datalink.DataLinkPDU(
             self.addr, self.addr + 1,
             self.message_id, len(self.short_data), 1, self.short_data)
         self.data_link_layer.process_incoming(data_unit.to_string())
         ok_(not self.data_link_layer.is_outgoing_empty())
         chunk, metadata = self.data_link_layer.get_outgoing()
-        chunk = layers.datalink.DataLinkPDU.from_string(chunk)
+        chunk = datalink.DataLinkPDU.from_string(chunk)
         eq_(data_unit.source_addr, chunk.source_addr)
         eq_(data_unit.dest_addr, chunk.dest_addr)
         eq_(data_unit.message_id, chunk.message_id)
@@ -108,7 +109,7 @@ class TestDataLink(object):
         eq_(data_unit.chunk, chunk.chunk)
 
     def test_should_not_forward_if_seen(self):
-        data_unit = layers.datalink.DataLinkPDU(
+        data_unit = datalink.DataLinkPDU(
             self.addr, self.addr + 1,
             self.message_id, len(self.short_data), 1, self.short_data)
         self.data_link_layer.process_incoming(data_unit.to_string())

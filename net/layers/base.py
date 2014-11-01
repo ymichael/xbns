@@ -19,7 +19,7 @@ class MetaData(object):
 class BaseLayer(object):
     """Base class for each layer."""
 
-    def __init__(self, addr):
+    def __init__(self):
         # Each layer has a logger that logs to the console.
         self.logger = logging.getLogger(self.__class__.__name__)
         # TODO: Refactor debug level as a cli argument.
@@ -28,12 +28,14 @@ class BaseLayer(object):
         handler.setFormatter(
             logging.Formatter("%(name)-10s - %(levelname)-8s: %(message)s"))
         self.logger.addHandler(handler)
-
-        self.addr = addr
+        self.addr = None
         # From this layer to a higher layer.
         self._incoming_queue = queue.Queue()
         # From this layer to a lower layer.
         self._outgoing_queue = queue.Queue()
+
+    def set_addr(self, addr):
+        self.addr = addr
 
     def is_incoming_empty(self):
         """Returns whether the incoming queue is empty.

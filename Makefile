@@ -1,4 +1,8 @@
-.PHONY: start port rsync
+.PHONY: start port rsync rmpyc rsync-makefile
+
+rmpyc:
+	find . | grep -v .venv | grep .pyc | xargs rm
+
 
 # XBee network configuration. Change as necessary.
 MYID := 0x1222
@@ -12,14 +16,16 @@ SERIALPORT = $(shell find /dev | egrep -i "ttyUSB|tty.*usbserial")
 port:
 	echo $(SERIALPORT)
 
+
 start:
-	python main.py \
+	PYTHONPATH=. python net/stack.py \
 		--panid=$(PANID) \
 		--channel=$(CHANNEL) \
 		--myid=$(MYID) \
 		--port=$(SERIALPORT)
 
-# rsync repository with beaglebone.
+
+# rsync repository with beaglebone (w/o makefile)
 rsync:
 	rsync -avz \
 		--exclude=.git \
@@ -27,3 +33,10 @@ rsync:
 		--exclude=*.pyc \
 		--exclude=Makefile \
 		. michael@bone:~/xbns
+
+rsync-xbee:
+	rsync -avz .venv/lib/python2.7/site-packages/xbee michael@bone:~/xbns
+
+# rsync makefile.
+rsync-makefile:
+	rsync Makefile michael@bone:~/xbns/Makefile
