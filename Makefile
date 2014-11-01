@@ -1,4 +1,4 @@
-.PHONY: start port rsync rmpyc rsync-makefile
+.PHONY: start port rsync rmpyc rsync-makefile sim
 
 rmpyc:
 	find . | grep -v .venv | grep .pyc | xargs rm
@@ -24,6 +24,8 @@ start:
 		--myid=$(MYID) \
 		--port=$(SERIALPORT)
 
+sim:
+	PYTHONPATH=. python sim/main.py
 
 # rsync repository with beaglebone (w/o makefile)
 rsync:

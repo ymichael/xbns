@@ -24,10 +24,11 @@ class BaseLayer(object):
         self.logger = logging.getLogger(self.__class__.__name__)
         # TODO: Refactor debug level as a cli argument.
         self.logger.setLevel(logging.DEBUG)
-        handler = logging.StreamHandler()
-        handler.setFormatter(
-            logging.Formatter("%(name)-10s - %(levelname)-8s: %(message)s"))
-        self.logger.addHandler(handler)
+        if len(self.logger.handlers) == 0:
+            handler = logging.StreamHandler()
+            handler.setFormatter(
+                logging.Formatter("%(name)-10s - %(levelname)-8s: %(message)s"))
+            self.logger.addHandler(handler)
         self.addr = None
         # From this layer to a higher layer.
         self._incoming_queue = queue.Queue()
