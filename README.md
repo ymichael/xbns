@@ -1,24 +1,34 @@
-# XBee Networking Stack
+XBee Networking Stack
+=====================
 
-An implmentation of various networking layers for a network of nodes connected
-with XBee radios.
+An implmentation of a networking stack for use with XBees radios.
+
+## `net`
+- Modelled after the OSI model
+- Entry point is `stack.py`
+- Each layer has two `Queue.Queue` (incoming and outgoing)
+- Each "consumer" runs on a separate thread (~2 threads per layer)
+
+## `sim`
+- Used to simulate various network topologies
+- Fake implementations of xbee radios
+  (use queues to send messages along predefined links)
+
+## `app`
+- Contains various application level protocols
+  (that make use of the `net` stack)
+- TODO
 
 ## Installing dependencies
 ```sh
+# pyserial, xbee
 $ pip install -r requirements.txt
 ```
 
-## Running main.py
-```sh
-# See Makefile for more details.
-python main.py \
-	--panid=[PANID] \
-	--channel=[CHANNEL] \
-	--myid=[MYID] \
-	--port=[SERIALPORT]
-```
+## Usage
+See `Makefile` for the relevant targets.
 
-## Running tests
+## Tests
 ```sh
 # Installing test runner.
 $ pip install nose
