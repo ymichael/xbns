@@ -7,10 +7,14 @@ class Network(threading.Thread):
         super(Network, self).__init__()
         self.outgoing_links = defaultdict(set)
         self.radios = {}
+        self.nodes = []
 
     def _add_link(self, a, b):
         """Adds an outgoing link from `a` to `b`."""
         self.outgoing_links[a].add(b)
+
+    def add_node(self, node):
+        self.nodes.append(node)
 
     def add_radio(self, radio, outgoing_links):
         self.radios[radio.addr] = radio
@@ -30,6 +34,9 @@ class Network(threading.Thread):
             self.broadcast(outgoing_message, addr)
 
     def run(self):
+        for node in self.nodes:
+            node.start()
+
         for addr in self.radios.keys():
             t = threading.Thread(target=self.process_messages, args=(addr,))
             t.setDaemon(True)

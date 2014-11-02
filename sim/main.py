@@ -2,36 +2,35 @@ from network import Network
 from radio import Radio
 import net.stack
 import time
+import topology
 
 
 if __name__ == '__main__':
-	# Simple multi-hop topology.
-	# [1] <=> [2] <=> [3] <=> [4] <=> [5]
-	topology = [
-		(1, [2]),
-		(2, [1, 3]),
-		(3, [2, 4]),
-		(4, [3, 5]),
-		(5, [4]),
-	]
-	nodes = []
-	network = Network()
-	for addr, outgoing_links in topology:
-		# Create radio for each node and register radio with the network.
-		radio = Radio(addr)
-		network.add_radio(radio, outgoing_links)
-		# Create stack for each node.
-		stack = net.stack.Stack.create(addr, radio)
-		nodes.append(stack)
+    # Create a 15 node network:
+    # chain <=> clique <=> chain
+    chain = topology.chain(5, start_addr=1)
+    chain2 = topology.chain(5, start_addr=10)
+    clique = topology.clique(5, start_addr=20)
+    topo = topology.merge_topologies(chain, clique)
+    topo = topology.add_link(topo, 1, 20)
+    topo = topology.merge_topologies(topo, chain2)
+    topo = topology.add_link(topo, 22, 10)
 
-	# Start the network and all nodes.
-	network.start()
-	for node in nodes:
-		node.start()
+    nodes = {}
+    network = Network()
+    for addr, outgoing_links in topo:
+        # Create radio for each node and register radio with the network.
+        radio = Radio(addr)
+        network.add_radio(radio, outgoing_links)
+        # Create stack for each node.
+        stack = net.stack.Stack.create(addr, radio)
+        network.add_node(stack)
+        nodes[addr] = stack
 
-	# Don't terminate.
-	while True:
-		# for node in nodes:
-		# 	node.send(str(node.addr) * 1000)
-		nodes[0].send("hello world", 5)
-		time.sleep(5)
+    # Start the network.
+    network.start()
+
+    # Don't terminate.
+    while True:
+        nodes[1].send("hello world", 11)
+        time.sleep(5)
