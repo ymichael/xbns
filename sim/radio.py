@@ -2,7 +2,7 @@ from net.radio.base import BaseRadio
 import Queue as queue
 
 
-class FakeRadio(BaseRadio):
+class Radio(BaseRadio):
     def __init__(self, addr):
         self.addr = addr
         self.outgoing_queue = queue.Queue()

@@ -1,5 +1,5 @@
 from network import Network
-import fake.radio
+from radio import Radio
 import net.stack
 import time
 
@@ -18,7 +18,7 @@ if __name__ == '__main__':
 	network = Network()
 	for addr, outgoing_links in topology:
 		# Create radio for each node and register radio with the network.
-		radio = fake.radio.FakeRadio(addr)
+		radio = Radio(addr)
 		network.add_radio(radio, outgoing_links)
 		# Create stack for each node.
 		stack = net.stack.Stack.create(addr, radio)
