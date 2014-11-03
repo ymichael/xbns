@@ -1,6 +1,5 @@
 from network import Network
-from radio import Radio
-import net.stack
+from node import Node
 import time
 import topology
 
@@ -19,13 +18,9 @@ if __name__ == '__main__':
     nodes = {}
     network = Network()
     for addr, outgoing_links in topo:
-        # Create radio for each node and register radio with the network.
-        radio = Radio(addr)
-        network.add_radio(radio, outgoing_links)
-        # Create stack for each node.
-        stack = net.stack.Stack.create(addr, radio)
-        network.add_node(stack)
-        nodes[addr] = stack
+        node = Node.create(addr)
+        network.add_node(node, outgoing_links)
+        nodes[addr] = node
 
     # Start the network.
     network.start()
