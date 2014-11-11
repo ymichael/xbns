@@ -78,6 +78,7 @@ if __name__ == '__main__':
         args.port, args.baudrate, panid, channel, myid)
     stack = Stack.create(myid, radio)
     stack.start()
+
+    # TODO(michael): Stack doesn't do anything here, add application.
     while True:
-        time.sleep(1)
-        stack.send("0" * 1000)
+        time.sleep(10)
