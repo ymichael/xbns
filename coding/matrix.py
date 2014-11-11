@@ -15,6 +15,10 @@ def num_rows(mat):
 
 
 def dot(a, b):
+    """Multiply two matrices, a * b.
+
+    Matrices are represented as list of lists.
+    """
     assert_cols(a, num_rows(b))
     result = []
     for i, row_a in enumerate(a):

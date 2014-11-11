@@ -2,6 +2,12 @@ import itertools
 
 
 class Message(object):
+    """Represents a message to be sent.
+
+    - Handles conversion from string of bytes to int_array to matrix with a
+    given number of rows.
+    - Also handles padding and unpadding of initial message to fit in a matrix.
+    """
     # Escape bytes
     END = 192
     ESCAPE = 219
