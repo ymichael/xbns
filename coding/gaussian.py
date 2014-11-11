@@ -93,24 +93,3 @@ class GaussianElimination(object):
         for idx in reversed(rows):
             if all(x == 0 for x in self.a[idx]):
                 self._del(idx)
-
-
-def main():
-    # For testing.
-    g = GaussianElimination()
-    g.add_row([3,2,1], [12])
-    print g.get_rows_required()
-    print g.is_solved()
-    g.add_row([6,4,2], [24])
-    print g.get_rows_required()
-    print g.is_solved()
-    g.add_row([1,2,4], [4])
-    print g.get_rows_required()
-    print g.is_solved()
-    g.add_row([2,1,2], [36])
-    print g.get_rows_required()
-    print g.is_solved()
-    print g.b
-
-if __name__ == '__main__':
-    main()
