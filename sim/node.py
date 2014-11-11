@@ -7,17 +7,27 @@ import threading
 class Node(threading.Thread):
     def __init__(self, addr, radio):
         super(Node, self).__init__()
+        self.daemon = True
+
         self.addr = addr
         self.radio = radio
         self.stack  = net.stack.Stack.create(addr, radio)
-        self.daemon = True
 
-        # Buffers for interprocess communication.
+        # Buffers for inter-node communication.
         self.incoming_buffer = queue.Queue()
         self.outgoing_buffer = queue.Queue()
 
-    def send(self, data, dest_addr=None):
-        self.stack.send(data, dest_addr)
+        # Applications running on this node.
+        # "application name" => <application instance>
+        self.apps = {}
+
+    def add_app(self, app):
+        assert app.get_port() not in self.apps
+        self.apps[app.get_port()] = app
+        self.stack.add_app(app)
+
+    def get_app(self, port_no):
+        return self.apps[port_no]
 
     def process_incoming(self):
         while True:

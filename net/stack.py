@@ -1,4 +1,4 @@
-from layers import application
+from layers import transport
 from layers import datalink
 from layers import physical
 from radio import xbeeradio
@@ -10,45 +10,48 @@ import time
 
 
 class Stack(threading.Thread):
-    def __init__(self, addr, layers):
+    def __init__(self, addr, base_layers):
         super(Stack, self).__init__()
-        self.addr = addr
         self.daemon = True
-        self.layers = layers
+        self.addr = addr
+        self.base_layers = base_layers
+        self.app_layers = {}
 
     def run(self):
         """Binds each layer to its previous and next layer.
 
         Starts listening on the respective queues.
         """
-        for index, layer in enumerate(self.layers):
-            incoming_layer = self.layers[index - 1] if index != 0 else None
-            outgoing_layer = self.layers[index + 1] if \
-                index != len(self.layers) - 1 else None
+        for index, layer in enumerate(self.base_layers):
+            incoming_layer = self.base_layers[index - 1] if index != 0 else None
+            outgoing_layer = self.base_layers[index + 1] if \
+                index != len(self.base_layers) - 1 else None
             layer.start(
                 incoming_layer=incoming_layer,
                 outgoing_layer=outgoing_layer)
 
-    def send(self, data, dest_addr=None):
-        self.layers[-1].send(data, dest_addr)
+    def add_app(self, app):
+        assert app.get_port() not in self.app_layers
+        self.app_layers[app.get_port()] = app
+        app.set_addr(self.addr)
+
+        # Register application with the transport layer.
+        transport_layer = self.base_layers[-1]
+        transport_layer.add_app(app)
+
+        # Connect application to transport layer.
+        app.start(incoming_layer=transport_layer)
 
     @classmethod
-    def create(cls, addr, radio, additional_layers=None):
-        # Configure the physical layer.
-        physical_layer = physical.Physical(radio)
+    def create(cls, addr, radio):
         # Default layers
         layers = [
-            physical_layer,
+            physical.Physical(radio),
             datalink.DataLink(),
-            application.Application(),
+            transport.Transport(),
         ]
-        if additional_layers is not None:
-            for l in additional_layers:
-                layers.append(l)
-
         for l in layers:
             l.set_addr(addr)
-
         return Stack(addr, layers)
 
 

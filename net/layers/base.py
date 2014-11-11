@@ -14,6 +14,7 @@ class MetaData(object):
         self.dest_addr = self.DEST_ADDR
         self.source_addr = None
         self.sender_addr = None
+        self.port = None
 
 
 class BaseLayer(object):
@@ -100,12 +101,12 @@ class BaseLayer(object):
         """Starts threads for either layer, if given."""
         if incoming_layer is not None:
             incoming = threading.Thread(
-                    target=self.start_incoming, args=(incoming_layer,))
+                target=self.start_incoming, args=(incoming_layer,))
             incoming.setDaemon(True)
             incoming.start()
 
         if outgoing_layer is not None:
             outgoing = threading.Thread(
-                    target=self.start_outgoing, args=(outgoing_layer,))
+                target=self.start_outgoing, args=(outgoing_layer,))
             outgoing.setDaemon(True)
             outgoing.start()
