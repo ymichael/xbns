@@ -22,7 +22,7 @@ class Application(base.BaseLayer):
 
         self.process_outgoing(data, metadata)
         self.logger.debug("(%s, %s): Sent: %s" % \
-            (self.addr, self.get_port(), data))
+            (self.addr, self.get_port(), data[:10] + "..."))
 
     def start_incoming(self, incoming_layer):
         while True:
