@@ -14,6 +14,10 @@ An implmentation of a networking stack for use with XBees radios.
 - Fake implementations of xbee radios
   (use queues to send messages along predefined links)
 
+## `coding`
+- Network Coding related operations
+- Matrix methods, Gaussian Elimination etc.
+
 ## `app`
 - Contains various application level protocols
   (that make use of the `net` stack)
