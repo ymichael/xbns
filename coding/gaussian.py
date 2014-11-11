@@ -1,5 +1,8 @@
 class GaussianElimination(object):
-    """Performs Gaussian elimination."""
+    """Performs Gaussian elimination.
+
+    Allows rows to be added in parts.
+    """
     def __init__(self):
         self.a = []
         self.b = []
