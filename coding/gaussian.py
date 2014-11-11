@@ -88,7 +88,7 @@ class GaussianElimination(object):
         # Delete non-innovative rows.
         rows = xrange(0, len(self.a))
         for idx in reversed(rows):
-            if sum(self.a[idx]) == 0:
+            if all(x == 0 for x in self.a[idx]):
                 self._del(idx)
 
 
