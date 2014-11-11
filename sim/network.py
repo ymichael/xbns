@@ -1,13 +1,15 @@
 from collections import defaultdict
 import threading
+import time
 
 
 class Network(threading.Thread):
-    def __init__(self):
+    def __init__(self, delay=.01):
         super(Network, self).__init__()
         self.outgoing_links = defaultdict(set)
         self.nodes = {}
         self.daemon = True
+        self.delay = delay
 
     def _add_link(self, a, b):
         """Adds an outgoing link from `a` to `b`."""
@@ -21,6 +23,7 @@ class Network(threading.Thread):
     def broadcast(self, data, a):
         """Broadcast data from `a`."""
         # Radios expect a tuple of (data, sender_addr)
+        time.sleep(self.delay)
         frame = (data, a)
         for dest in self.outgoing_links[a]:
             self.nodes[dest].incoming_buffer.put(frame)
