@@ -1,9 +1,19 @@
 from network import Network
 from node import Node
-import app.basic
-import app.flooding
 import time
 import topology
+
+# Applications
+import app.basic
+import app.flooding
+import app.deluge
+
+
+def file_contents(filepath):
+    f = open(filepath, 'r')
+    retval = f.read()
+    f.close()
+    return retval
 
 
 if __name__ == '__main__':
@@ -19,7 +29,7 @@ if __name__ == '__main__':
 
     # Set up nodes in the network.
     nodes = {}
-    network = Network(delay=.1)
+    network = Network(delay=0)
     for addr, outgoing_links in topo:
         node = Node.create(addr)
         nodes[addr] = node
@@ -33,10 +43,18 @@ if __name__ == '__main__':
     #     node.add_app(app.basic.Basic(port_num))
 
     for addr, node in nodes.iteritems():
-        node.add_app(app.flooding.Flooding())
+        node.add_app(app.deluge.Deluge())
     
-    nodes[1] \
-        .get_app(app.flooding.Flooding.PORT) \
-        .flood_update(1, "0" * 1000)
+
+    # Data
+    data = file_contents("./data/2.in")
+
+    import hashlib
+    h = hashlib.md5()
+    h.update(data)
+    print h.hexdigest()
+
+    nodes[1].get_app(app.deluge.Deluge.PORT) \
+        .new_version(1, data)
     # Don't terminate.
     time.sleep(500)

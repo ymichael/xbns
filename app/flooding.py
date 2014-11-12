@@ -35,10 +35,15 @@ class Flooding(net.layers.application.Application):
         data_unit = FloodingPDU.from_string(data)
         self.flood_update(data_unit.number, data_unit.message)
 
-
     def flood_update(self, number, update):
-        if self.current_number < number:
-            self.current_number = number
-            self.logger.debug("(%s, %s): Received: %s" % \
-                (self.addr, self.get_port(), number))
-            self.send(FloodingPDU(number, update).to_string())
+        if self.current_number >= number:
+            return
+
+        self.current_number = number
+        self.logger.debug("(%s, %s): Received: %s" % \
+            (self.addr, self.get_port(), number))
+
+        self.send(FloodingPDU(number, update).to_string())
+
+        self.logger.debug("(%s, %s): Sent: %s" % \
+            (self.addr, self.get_port(), number))

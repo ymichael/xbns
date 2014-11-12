@@ -19,10 +19,7 @@ class Application(base.BaseLayer):
         assert metadata.port is not None
         if dest_addr is not None:
             metadata.dest_addr = dest_addr
-
         self.process_outgoing(data, metadata)
-        self.logger.debug("(%s, %s): Sent: %s" % \
-            (self.addr, self.get_port(), data[:10] + "..."))
 
     def start_incoming(self, incoming_layer):
         while True:
