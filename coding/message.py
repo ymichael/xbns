@@ -41,7 +41,7 @@ class Message(object):
     @classmethod
     def from_matrix(cls, matrix):
         int_array = list(itertools.chain(*matrix))
-        int_array = [int(x) for x in int_array]
+        int_array = [int(round(x)) for x in int_array]
         int_array = cls.removepadding(int_array)
         int_array = cls.unescape(int_array)
         return cls.from_int_array(int_array)
