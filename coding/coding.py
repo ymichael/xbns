@@ -4,28 +4,20 @@ import matrix
 
 def main():
     h = 10
-    data = "Given a string of length one, return an integer representing the Unicode code point of the character when the argument is a unicode object, or the value of the byte when the argument is an 8-bit string. For example, ord('a') returns the integer 97, ord(u'\u2020') returns 8224. This is the inverse of chr() for 8-bit strings and of unichr() for unicode objects. If a unicode argument is given and Python was built with UCS2 Unicode, then the character's code point must be in the range [0..65535] inclusive; otherwise the string length is two, and a TypeError will be raised."
-
+    data = "A wireless sensor network (WSN) of spatially distributed autonomous sensors to monitor physical or environmental conditions, such as temperature, sound, pressure, etc. and to cooperatively pass their data through the network to a main location. The more modern networks are bidirectional, also enabling control of sensor activity. The development of wireless sensor networks was motivated by military applications such as battlefield surveillance; today such networks are used in many industrial and consumer applications, such as industrial process monitoring and control, machine health monitoring, and so on."
     m = message.Message(data)
-    
     chunks = m.to_matrix(rows=h)
     coeffs = [
-        [1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 1, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 1, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 1, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 1, 0, 0],
-        [1, 0, 1, 0, 0, 0, 0, 0, 0, 0],
-        [0, 2, 0, 1, 0, 0, 0, 0, 0, 0],
-        [0, 0, 3, 0, 1, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 1, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 1, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+        [10, 16, 5, 3, 12, 4, 19, 4, 8, 14],
+        [1, 15, 15, 17, 0, 20, 4, 11, 7, 9],
+        [11, 9, 1, 2, 12, 17, 5, 2, 17, 8],
+        [1, 14, 11, 3, 3, 8, 18, 2, 2, 7],
+        [1, 19, 1, 11, 20, 5, 2, 9, 15, 8],
+        [19, 11, 2, 7, 8, 11, 11, 20, 5, 7],
+        [17, 5, 6, 6, 3, 13, 8, 4, 15, 20],
+        [8, 9, 7, 5, 8, 18, 4, 14, 11, 3],
+        [2, 20, 19, 4, 7, 13, 10, 7, 17, 14],
+        [9, 18, 3, 15, 13, 0, 13, 5, 17, 11],
     ]
     g = gaussian.GaussianElimination()
     for coeff in coeffs:
