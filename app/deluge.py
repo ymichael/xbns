@@ -94,38 +94,37 @@ class Deluge(net.layers.application.Application):
     T_MIN = .1
     T_MAX = 5
     K = 1
-
     TX_T = .1
 
     def get_port(self):
         return self.PORT
 
     def new_version(self, version, data):
+        # Only update if the version is later than the current version.
         if version <= self.version:
             return
 
         self.version = version
-        self.data = data
         self.complete_pages = {}
         self.packets_per_page =[]
         self.buffering_pages = {}
+        self._split_data_into_pages_and_packets(data)
 
-        # TODO: Make this cleaner.
-        i = 0
+    def _split_data_into_pages_and_packets(self, data):
+        current_index = 0
         page_number = 0
-        while i < len(data):
-            page = data[i:i + self.PAGE_SIZE]
+        while current_index < len(data):
+            page_end = current_index + self.PAGE_SIZE
             packets = {}
             packet_number = 0
-            j = 0
-            while j < len(page):
-                packets[packet_number] = page[j:j + self.PACKET_SIZE]
+            while current_index < page_end and current_index < len(data):
+                packet_end = current_index + self.PACKET_SIZE
+                packets[packet_number] = data[current_index:packet_end]
                 packet_number += 1
-                j += self.PACKET_SIZE
+                current_index += self.PACKET_SIZE
             self.complete_pages[page_number] = packets
             self.packets_per_page.append(len(packets))
             page_number += 1
-            i += self.PAGE_SIZE
 
     def __init__(self):
         super(Deluge, self).__init__()
@@ -160,7 +159,6 @@ class Deluge(net.layers.application.Application):
         self._pending_reqs = set()
 
         # Page/Packet information.
-        self.data = ""
         self.complete_pages = {}
         self.packets_per_page = []
         self.buffering_pages = {}
