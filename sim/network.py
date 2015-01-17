@@ -1,10 +1,11 @@
 from collections import defaultdict
 import threading
 import time
+import random
 
 
 class Network(threading.Thread):
-    def __init__(self, delay=.01):
+    def __init__(self, delay=0):
         super(Network, self).__init__()
         self.outgoing_links = defaultdict(set)
         self.nodes = {}
@@ -20,13 +21,22 @@ class Network(threading.Thread):
         for link in outgoing_links:
             self._add_link(node.addr, link)
 
-    def broadcast(self, data, a):
-        """Broadcast data from `a`."""
+    def broadcast(self, data, sender):
+        """Broadcast data from sender."""
         # Radios expect a tuple of (data, sender_addr)
         time.sleep(self.delay)
-        frame = (data, a)
-        for dest in self.outgoing_links[a]:
-            self.nodes[dest].incoming_buffer.put(frame)
+        frame = (data, sender)
+
+        # Determine if packet should be droped.
+        if not self.should_drop_packet(data, sender):
+            for dest in self.outgoing_links[sender]:
+                self.nodes[dest].incoming_buffer.put(frame)
+        else:
+            print 'PACKET DROPPED.'
+
+    def should_drop_packet(self, data, sender):
+        # TMP.
+        return random.uniform(0, 10) < .5
 
     def process_outgoing(self, addr):
         while True:

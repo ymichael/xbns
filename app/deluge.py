@@ -81,9 +81,9 @@ class DelugePDU(object):
 
 
 class State(object):
-    MAINTAIN = 1
-    RX = 2
-    TX = 3
+    MAINTAIN = 'MAINTAIN'
+    RX = 'RX'
+    TX = 'TX'
 
 
 class Deluge(net.layers.application.Application):
@@ -167,7 +167,6 @@ class Deluge(net.layers.application.Application):
         self._send_adv_timer = None
         self._next_round_timer = None
 
-
     def start(self, *args, **kwargs):
         super(Deluge, self).start(*args, **kwargs)
 
@@ -195,6 +194,8 @@ class Deluge(net.layers.application.Application):
         # round, update t
         if not self.inconsistent:
             self.t = min(self.t * 2, self.T_MAX)
+        else:
+            self.t = self.T_MIN
         self.inconsistent = False
 
         # Wait for a random amount of time (between self.t / 2 and self.t)
@@ -253,39 +254,38 @@ class Deluge(net.layers.application.Application):
         self.send(adv.to_string())
 
     def _process_adv(self, data_unit):
-        if self.state == State.MAINTAIN:
-            # Check if network is consistent.
-            if data_unit.version > self.version:
-                self.version = data_unit.version
-                self.packets_per_page = data_unit.packets_per_page
-                self.buffering_pages = {}
-                self.complete_pages = {}
+        # Check if network is consistent.
+        if data_unit.version > self.version:
+            self.version = data_unit.version
+            self.packets_per_page = data_unit.packets_per_page
+            self.buffering_pages = {}
+            self.complete_pages = {}
 
-            adv_pages = set(data_unit.pages)
-            own_pages = set(self.complete_pages.keys())
+        adv_pages = set(data_unit.pages)
+        own_pages = set(self.complete_pages.keys())
 
-            # Increase k if ADV is same.
-            if adv_pages == own_pages:
-                self.k += 1
-            else:
-                missing_pages = adv_pages - own_pages
-                if len(missing_pages) != 0 or \
-                        max(adv_pages) > max(own_pages):
-                    self.state = State.RX
+        # Increase k if ADV is same.
+        if adv_pages == own_pages:
+            self.k += 1
+        else:
+            missing_pages = adv_pages - own_pages
+            should_request = len(missing_pages) != 0 or \
+                    max(adv_pages) > max(own_pages)
 
-                    # Queue the various packets to request.
-                    req_page = min(missing_pages)
-                    self._pending_reqs.add(req_page)
+            if self.state == State.MAINTAIN and should_request:
+                self.state = State.RX
 
-                # Set t to T_MIN and start new round.
-                self.inconsistent = True
-                self.t = self.T_MIN
-                self._restart_round()
+                # Queue the various packets to request.
+                req_page = min(missing_pages)
+                self._pending_reqs.add(req_page)
 
-    def _restart_round(self):
-        # NOTE: Do not cancel send_adv timer here. The adv only gets cancelled
-        # if more than k of the same adv are overheard during the specified
-        # time.
+            # Set t to T_MIN and start new round.
+            self.inconsistent = True
+            self._restart_round(cancel_adv=should_request)
+
+    def _restart_round(self, cancel_adv=False):
+        if self._send_adv_timer is not None:
+            self._send_adv_timer.cancel()
         if self._next_round_timer is not None:
             self._next_round_timer.cancel()
 
@@ -320,6 +320,8 @@ class Deluge(net.layers.application.Application):
         if self.state == State.MAINTAIN or self.state == State.TX:
             for packet in data_unit.packets:
                 self._pending_datas.add((data_unit.page_number, packet))
+
+        self.inconsistent = True
 
     def _process_data(self, data_unit):
         if self.version != data_unit.version:
@@ -373,7 +375,7 @@ class Deluge(net.layers.application.Application):
         elif data_unit.is_data():
             msg = "%s, %s" % (data_unit.page_number, data_unit.packet_number)
         self.logger.debug("(%s, %s): Received: %s, %s From: %s" % \
-            (self.addr, self.get_port(), data_unit.get_msg_type(), msg,
+            (self.addr, self.state, data_unit.get_msg_type(), msg,
                 metadata.sender_addr))
 
     def get_page(self):
