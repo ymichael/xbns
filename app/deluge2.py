@@ -335,6 +335,12 @@ class Deluge(net.layers.application.Application):
     def _process_data(self, data_unit):
         self.req_and_data_overheard += 1
 
+        # Remove from pending DATA if applicable.
+        data_id = (data_unit.page_number, data_unit.packet_number)
+        if data_id in self._pending_datas:
+            self.log("Suppressed DATA")
+            self._pending_datas.remove(data_id)
+
         # Store data if applicable.
         if data_unit.page_number >= len(self.complete_pages):
             if data_unit.page_number not in self.buffering_pages:
