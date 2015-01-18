@@ -89,13 +89,19 @@ class BaseLayer(object):
 
     def start_incoming(self, incoming_layer):
         while True:
-            data, metadata = incoming_layer.get_incoming()
-            self.process_incoming(data, metadata)
+            try:
+                data, metadata = incoming_layer.get_incoming()
+                self.process_incoming(data, metadata)
+            except Exception, e:
+                print str(e)
 
     def start_outgoing(self, outgoing_layer):
         while True:
-            data, metadata = outgoing_layer.get_outgoing()
-            self.process_outgoing(data, metadata)
+            try:
+                data, metadata = outgoing_layer.get_outgoing()
+                self.process_outgoing(data, metadata)
+            except Exception, e:
+                print str(e)
 
     def start(self, incoming_layer=None, outgoing_layer=None):
         """Starts threads for either layer, if given."""
