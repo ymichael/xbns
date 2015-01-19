@@ -6,7 +6,7 @@ import topology
 # Applications
 import app.basic
 import app.flooding
-import app.deluge2
+import app.deluge
 
 
 def file_contents(filepath):
@@ -34,6 +34,7 @@ if __name__ == '__main__':
         node = Node.create(addr)
         nodes[addr] = node
         network.add_node(node, outgoing_links)
+
     # Start the network.
     network.start()
 
@@ -43,13 +44,11 @@ if __name__ == '__main__':
     #     node.add_app(app.basic.Basic(port_num))
 
     for addr, node in nodes.iteritems():
-        node.add_app(app.deluge2.Deluge())
-    
+        node.add_app(app.deluge.Deluge())
 
     # Data
     data = file_contents("./data/2.in")
+    nodes[1].get_app(app.deluge.Deluge.PORT).new_version(1, data)
 
-    nodes[1].get_app(app.deluge2.Deluge.PORT) \
-        .new_version(1, data)
     # Don't terminate.
     time.sleep(500)

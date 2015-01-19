@@ -119,7 +119,7 @@ class Deluge(net.layers.application.Application):
         self._start_next_round(delay=0)
 
     def _split_data_into_pages_and_packets(self, data):
-        # TMP: Handle padding of variable length data.
+        # TODO: Handle padding of variable length data.
         if (len(data) % self.PAGE_SIZE) != 0:
             padding = (len(data) + self.PAGE_SIZE)
             padding -= padding % self.PAGE_SIZE
@@ -224,6 +224,8 @@ class Deluge(net.layers.application.Application):
         self._send_adv_delayed()
 
     def _round_rx(self):
+        # TODO: Ensure a minimum rate of DATA transfer, otherwise exit the RX
+        # state.
         self._start_next_round(delay=self.t)
         self._send_req_delayed()
 
