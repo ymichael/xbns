@@ -15,10 +15,13 @@ class Message(object):
     def __init__(self, string):
         self.string = string
 
-    def to_size(self, size):
+    def _to_int_array(self, size):
         int_array = self.to_int_array(self.string)
         int_array = self.escape(int_array)
-        int_array = self.addpadding(int_array, size)
+        return self.addpadding(int_array, size)
+
+    def to_size(self, size):
+        int_array = self._to_int_array(size)
         return self.int_array_to_string(int_array)
 
     @classmethod
@@ -82,3 +85,27 @@ class Message(object):
             end_index = int_array.index(cls.END)
             int_array = int_array[:end_index]
         return int_array
+
+
+    # Convinience methods for network coding messages.
+    def to_matrix(self, rows):
+        size = len(self.string)
+        if size % rows != 0:
+            size += rows
+            size -= (size % rows)
+        int_array = self._to_int_array(size)
+        matrix = []
+        idx = 0
+        column = size / rows
+        while idx < size:
+            matrix.append(int_array[idx:idx + column])
+            idx += column
+        return matrix
+
+    @classmethod
+    def from_matrix(cls, matrix):
+        int_array = list(itertools.chain(*matrix))
+        int_array = [int(round(x)) for x in int_array]
+        int_array = cls.removepadding(int_array)
+        int_array = cls.unescape(int_array)
+        return cls(cls.int_array_to_string(int_array))
