@@ -152,8 +152,11 @@ class Deluge(net.layers.application.Application):
         # The current version
         self.version = 0
 
-        # The current round
+        # The current round.
         self.round_number = 0
+
+        # The number of rounds in the current state.
+        self.rounds_in_state = 0
 
         # Page/Packet information.
         self.complete_pages = []
@@ -172,6 +175,10 @@ class Deluge(net.layers.application.Application):
 
         # Number of REQ/DATA overheard
         self.req_and_data_overheard = 0
+
+        # DATA rate in the DelugeState.RX state (to determine if we should exit
+        # RX state)
+        self._rx_data_rate = 0
 
         # A buffer of DATA (page, packet) tuples to send.
         self._pending_datas = set()
@@ -213,6 +220,8 @@ class Deluge(net.layers.application.Application):
         # Reset round state.
         self.req_and_data_overheard = 0
         self.adv_overheard = 0
+        self.round_number += 1
+        self.rounds_in_state += 1
 
         self._log_round()
         if self.state == DelugeState.MAINTAIN:
@@ -231,8 +240,7 @@ class Deluge(net.layers.application.Application):
         self._send_adv_delayed()
 
     def _round_rx(self):
-        # TODO: Ensure a minimum rate of DATA transfer, otherwise exit the RX
-        # state.
+        self._maybe_exit_rx()
         self._start_next_round(delay=self.t)
         self._send_req_delayed()
 
@@ -272,6 +280,19 @@ class Deluge(net.layers.application.Application):
         missing_packets = set(xrange(self.PACKETS_PER_PAGE)) - current_packets
         req = DelugePDU.create_req_packet(self.version, self._page_to_req, missing_packets)
         self._send_pdu(req)
+
+    def _maybe_exit_rx(self):
+        # Don't exit in the first round.
+        # If DATA rate of the previous round is poor (less than 1 useful DATA
+        # packet was received, useful: missing and belonging to the page that
+        # triggered entry into the RX state). Exit RX State.
+        if self.rounds_in_state != 1 and \
+                self._rx_data_rate < 1:
+            self.log("DATA rate too low.")
+            self._change_state(DelugeState.MAINTAIN)
+
+        # Reset counter.
+        self._rx_data_rate = 0
 
     def _send_data_delayed(self):
         rand_t = self._get_random_t_tx()
@@ -357,6 +378,11 @@ class Deluge(net.layers.application.Application):
             if data_unit.packet_number not in self.buffering_pages[data_unit.page_number]:
                 self.buffering_pages[data_unit.page_number][data_unit.packet_number] = data_unit.message
 
+                # Received a DATA packet for the page that triggered entry to
+                # the RX state.
+                if data_unit.page_number == self._page_to_req:
+                    self._rx_data_rate += 1
+
         # If we complete the next page, move it (and all applicable pages) to
         # the completed pages.
         next_page = len(self.complete_pages)
@@ -376,6 +402,7 @@ class Deluge(net.layers.application.Application):
     def _change_state(self, new_state):
         self._log_change_state(new_state)
         self.state = new_state
+        self.rounds_in_state = 0
 
     def log(self, message):
         prefix = "(%2s, %5s, %3s, %4s)" % \
@@ -409,7 +436,6 @@ class Deluge(net.layers.application.Application):
         self.log("Received message from %3s: %s" % (metadata.sender_addr, msg))
 
     def _log_round(self):
-        self.round_number += 1
         self.log('Starting round %3s' % self.round_number)
 
     def _log_change_state(self, new_state):
