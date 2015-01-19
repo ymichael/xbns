@@ -68,20 +68,37 @@ class DelugePDU(object):
         header = struct.pack(self.HEADER_PREFIX, self.msg_type)
         return header + self.message
 
+    def __repr__(self):
+        if self.is_adv():
+            return self._repr_adv()
+        elif self.is_req():
+            return self._repr_req()
+        elif self.is_data():
+            return self._repr_data()
+
+    def _repr_adv(self):
+        return "%4s, %2s, %2s" % (self.type, self.version, self.largest_completed_page)
+
+    def _repr_req(self):
+        return "%4s, %2s %s" % (self.type, self.page_number, self.packets)
+
+    def _repr_data(self):
+        return "%4s, %2s, %2s" % (self.type, self.page_number, self.packet_number)
+
     @classmethod
     def from_string(cls, data):
         x = struct.unpack(cls.HEADER_PREFIX, data[:cls.HEADER_PREFIX_SIZE])
         return cls(x[0], data[cls.HEADER_PREFIX_SIZE:])
 
     @classmethod
-    def create_data_packet(cls, version, page_number, packet_number, data):
-        header = struct.pack(cls.DATA_HEADER, version, page_number, packet_number)
-        return cls(cls.DATA, header + data)
-
-    @classmethod
     def create_adv_packet(cls, version, largest_completed_page):
         message = pickle.dumps([version, largest_completed_page])
         return cls(cls.ADV, message)
+
+    @classmethod
+    def create_data_packet(cls, version, page_number, packet_number, data):
+        header = struct.pack(cls.DATA_HEADER, version, page_number, packet_number)
+        return cls(cls.DATA, header + data)
 
     @classmethod
     def create_req_packet(cls, version, page_number, packets):
@@ -108,6 +125,10 @@ class Deluge(net.layers.application.Application):
 
     # Threshold of overheard packets for message suppression.
     K = 1
+
+    # Classes to use
+    PDU_CLS = DelugePDU
+    STATE_CLS = DelugeState
 
     def get_port(self):
         return self.PORT
@@ -169,7 +190,7 @@ class Deluge(net.layers.application.Application):
         self.buffering_pages = {}
 
         # The state of the protocols. Starts in the MAINTAIN state.
-        self.state = DelugeState.MAINTAIN
+        self.state = self.STATE_CLS.MAINTAIN
 
         # The length of the window. This is dynamically adjusted to be between
         # T_MIN and T_MAX to allow for fast propagation of new versions and low
@@ -182,8 +203,7 @@ class Deluge(net.layers.application.Application):
         # Number of REQ/DATA overheard
         self.req_and_data_overheard = 0
 
-        # DATA rate in the DelugeState.RX state (to determine if we should exit
-        # RX state)
+        # DATA rate in the RX state (to determine if we should exit RX state)
         self._rx_data_rate = 0
 
         # A buffer of DATA (page, packet) tuples to send.
@@ -230,11 +250,11 @@ class Deluge(net.layers.application.Application):
         self.rounds_in_state += 1
 
         self._log_round()
-        if self.state == DelugeState.MAINTAIN:
+        if self.state == self.STATE_CLS.MAINTAIN:
             self._round_maintain()
-        elif self.state == DelugeState.RX:
+        elif self.state == self.STATE_CLS.RX:
             self._round_rx()
-        elif self.state == DelugeState.TX:
+        elif self.state == self.STATE_CLS.TX:
             self._round_tx()
 
     def _round_maintain(self):
@@ -268,7 +288,7 @@ class Deluge(net.layers.application.Application):
         if self.adv_overheard >= self.K:
             self.log("Suppressed ADV")
             return
-        adv = DelugePDU.create_adv_packet(self.version, len(self.complete_pages))
+        adv = self.PDU_CLS.create_adv_packet(self.version, len(self.complete_pages))
         self._send_pdu(adv)
 
     def _send_req_delayed(self):
@@ -282,10 +302,15 @@ class Deluge(net.layers.application.Application):
         if self.req_and_data_overheard or self._page_to_req is None:
             self.log("Suppressed REQ")
             return
-        current_packets = set(self.buffering_pages[self._page_to_req].keys())
+        self._send_pdu(self._create_req())
+
+    def _create_req(self):
+        if self._page_to_req not in self.buffering_pages:
+            current_packets = set()
+        else:
+            current_packets = set(self.buffering_pages[self._page_to_req].keys())
         missing_packets = set(xrange(self.PACKETS_PER_PAGE)) - current_packets
-        req = DelugePDU.create_req_packet(self.version, self._page_to_req, missing_packets)
-        self._send_pdu(req)
+        return self.PDU_CLS.create_req_packet(self.version, self._page_to_req, missing_packets)
 
     def _maybe_exit_rx(self):
         # Don't exit in the first round.
@@ -295,7 +320,7 @@ class Deluge(net.layers.application.Application):
         if self.rounds_in_state != 1 and \
                 self._rx_data_rate < 1:
             self.log("DATA rate too low.")
-            self._change_state(DelugeState.MAINTAIN)
+            self._change_state(self.STATE_CLS.MAINTAIN)
 
         # Reset counter.
         self._rx_data_rate = 0
@@ -310,14 +335,14 @@ class Deluge(net.layers.application.Application):
     def _send_data(self):
         while len(self._pending_datas):
             page, packet = self._pending_datas.pop()
-            data = DelugePDU.create_data_packet(
+            data = self.PDU_CLS.create_data_packet(
                 self.version, page, packet,
                 self.complete_pages[page][packet])
             self._send_pdu(data)
-        self._change_state(DelugeState.MAINTAIN)
+        self._change_state(self.STATE_CLS.MAINTAIN)
 
     def process_incoming(self, data, metadata=None):
-        data_unit = DelugePDU.from_string(data)
+        data_unit = self.PDU_CLS.from_string(data)
         self._log_receive_pdu(data_unit, metadata)
 
         if data_unit.is_adv():
@@ -344,12 +369,10 @@ class Deluge(net.layers.application.Application):
 
         if data_unit.largest_completed_page > len(self.complete_pages):
             # Self not up-to-date.
-            if self.state == DelugeState.MAINTAIN:
+            if self.state == self.STATE_CLS.MAINTAIN:
                 # Set the next page to be requested.
                 self._page_to_req = len(self.complete_pages)
-                if self._page_to_req not in self.buffering_pages:
-                    self.buffering_pages[self._page_to_req] = {}
-                self._change_state(DelugeState.RX)
+                self._change_state(self.STATE_CLS.RX)
                 self._start_next_round(delay=0)
 
     def _process_req(self, data_unit):
@@ -360,8 +383,8 @@ class Deluge(net.layers.application.Application):
         # React to REQ, transit to TX state if we have the requested page.
         if data_unit.page_number < len(self.complete_pages):
             # We are able to fulfill request.
-            if self.state == DelugeState.MAINTAIN:
-                self._change_state(DelugeState.TX)
+            if self.state == self.STATE_CLS.MAINTAIN:
+                self._change_state(self.STATE_CLS.TX)
                 for packet in data_unit.packets:
                     self._pending_datas.add((data_unit.page_number, packet))
                 self._start_next_round(delay=0)
@@ -395,9 +418,9 @@ class Deluge(net.layers.application.Application):
         while next_page in self.buffering_pages and \
                 len(self.buffering_pages[next_page]) == self.PACKETS_PER_PAGE:
             self.complete_pages.append(self.buffering_pages[next_page])
-            if self.state == DelugeState.RX and next_page == self._page_to_req:
+            if self.state == self.STATE_CLS.RX and next_page == self._page_to_req:
                 self._page_to_req = None
-                self._change_state(DelugeState.MAINTAIN)
+                self._change_state(self.STATE_CLS.MAINTAIN)
             del self.buffering_pages[next_page]
             next_page += 1
 
@@ -416,30 +439,10 @@ class Deluge(net.layers.application.Application):
         print "%s - %s" % (prefix, message)
 
     def _log_send_pdu(self, data_unit):
-        msg = ""
-        if data_unit.is_adv():
-            msg += "%4s, %2s, %2s" % \
-                (data_unit.type, data_unit.version, data_unit.largest_completed_page)
-        elif data_unit.is_req():
-            msg += "%4s, %2s %s" % \
-                (data_unit.type, data_unit.page_number, data_unit.packets)
-        elif data_unit.is_data():
-            msg += "%4s, %2s, %2s" % \
-                (data_unit.type, data_unit.page_number, data_unit.packet_number)
-        self.log("Sending message: %s" % msg)
+        self.log("Sending message: %s" % repr(data_unit))
 
     def _log_receive_pdu(self, data_unit, metadata):
-        msg = ""
-        if data_unit.is_adv():
-            msg += "%4s, %2s, %2s" % \
-                (data_unit.type, data_unit.version, data_unit.largest_completed_page)
-        elif data_unit.is_req():
-            msg += "%4s, %2s" % \
-                (data_unit.type, data_unit.page_number)
-        elif data_unit.is_data():
-            msg += "%4s, %2s, %2s" % \
-                (data_unit.type, data_unit.page_number, data_unit.packet_number)
-        self.log("Received message from %3s: %s" % (metadata.sender_addr, msg))
+        self.log("Received message from %3s: %s" % (metadata.sender_addr, repr(data_unit)))
 
     def _log_round(self):
         self.log('Starting round %3s' % self.round_number)
