@@ -19,11 +19,11 @@ def file_contents(filepath):
 if __name__ == '__main__':
     # Create a 15 node network:
     # chain <=> clique <=> chain
-    chain = topology.chain(3, start_addr=1)
-    chain2 = topology.chain(3, start_addr=10)
-    clique = topology.clique(5, start_addr=20)
+    chain = topology.chain(2, start_addr=1)
+    chain2 = topology.chain(2, start_addr=10)
+    clique = topology.clique(3, start_addr=20)
     topo = topology.merge_topologies(chain, clique)
-    topo = topology.add_link(topo, 1, 20)
+    topo = topology.add_link(topo, 2, 20)
     topo = topology.merge_topologies(topo, chain2)
     topo = topology.add_link(topo, 22, 10)
 
@@ -49,7 +49,7 @@ if __name__ == '__main__':
     # Data
     data = file_contents("./data/2.in")
 
-    nodes[3].get_app(app.deluge2.Deluge.PORT) \
+    nodes[1].get_app(app.deluge2.Deluge.PORT) \
         .new_version(1, data)
     # Don't terminate.
     time.sleep(500)
