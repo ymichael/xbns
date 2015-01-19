@@ -439,7 +439,7 @@ class Deluge(net.layers.application.Application):
         print "%s - %s" % (prefix, message)
 
     def _log_send_pdu(self, data_unit):
-        self.log("Sending message: %s" % repr(data_unit))
+        self.log("Sending message (%s): %s" % (len(data_unit.to_string()), repr(data_unit)))
 
     def _log_receive_pdu(self, data_unit, metadata):
         self.log("Received message from %3s: %s" % (metadata.sender_addr, repr(data_unit)))
