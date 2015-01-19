@@ -27,12 +27,11 @@ class Network(threading.Thread):
         time.sleep(self.delay)
         frame = (data, sender)
 
-        # Determine if packet should be droped.
-        if not self.should_drop_packet(data, sender):
-            for dest in self.outgoing_links[sender]:
+        for dest in self.outgoing_links[sender]:
+            if not self.should_drop_packet(data, sender):
                 self.nodes[dest].incoming_buffer.put(frame)
-        else:
-            print 'PACKET DROPPED.'
+            else:
+                print 'PACKET DROPPED.'
 
     def should_drop_packet(self, data, sender):
         # TMP.
