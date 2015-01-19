@@ -300,11 +300,12 @@ class Deluge(net.layers.application.Application):
         
         if data_unit.largest_completed_page == len(self.complete_pages):
             # Network is consistent if summary overheard is similar to self.
-            self._inconsistent = False
             self.adv_overheard += 1
             return
 
         # Network is inconsistent.
+        self._set_inconsistent()
+
         if data_unit.largest_completed_page > len(self.complete_pages):
             # Self not up-to-date.
             if self.state == DelugeState.MAINTAIN:
@@ -313,12 +314,12 @@ class Deluge(net.layers.application.Application):
                 if self._page_to_req not in self.buffering_pages:
                     self.buffering_pages[self._page_to_req] = {}
                 self._change_state(DelugeState.RX)
-        
-        self._set_inconsistent()
-        self._start_next_round(delay=0)
+                self._start_next_round(delay=0)
 
     def _process_req(self, data_unit):
         self.req_and_data_overheard += 1
+        # REQ indicates that network is not up-to-date.
+        self._set_inconsistent()
 
         # React to REQ, transit to TX state if we have the requested page.
         if data_unit.page_number < len(self.complete_pages):
@@ -327,13 +328,12 @@ class Deluge(net.layers.application.Application):
                 self._change_state(DelugeState.TX)
                 for packet in data_unit.packets:
                     self._pending_datas.add((data_unit.page_number, packet))
-
-        # REQ indicates that network is not up-to-date.
-        self._set_inconsistent()
-        self._start_next_round(delay=0)
+                self._start_next_round(delay=0)
 
     def _process_data(self, data_unit):
         self.req_and_data_overheard += 1
+        # DATA indicates that network is not up-to-date.
+        self._set_inconsistent()
 
         # Remove from pending DATA if applicable.
         data_id = (data_unit.page_number, data_unit.packet_number)
@@ -345,7 +345,6 @@ class Deluge(net.layers.application.Application):
         if data_unit.page_number >= len(self.complete_pages):
             if data_unit.page_number not in self.buffering_pages:
                 self.buffering_pages[data_unit.page_number] = {}
-
             if data_unit.packet_number not in self.buffering_pages[data_unit.page_number]:
                 self.buffering_pages[data_unit.page_number][data_unit.packet_number] = data_unit.message
 
@@ -355,7 +354,7 @@ class Deluge(net.layers.application.Application):
         while next_page in self.buffering_pages and \
                 len(self.buffering_pages[next_page]) == self.PACKETS_PER_PAGE:
             self.complete_pages.append(self.buffering_pages[next_page])
-            if next_page >= self._page_to_req:
+            if self.state == DelugeState.RX and next_page == self._page_to_req:
                 self._page_to_req = None
                 self._change_state(DelugeState.MAINTAIN)
             del self.buffering_pages[next_page]
@@ -380,8 +379,8 @@ class Deluge(net.layers.application.Application):
             msg += "%4s, %2s, %2s" % \
                 (data_unit.type, data_unit.version, data_unit.largest_completed_page)
         elif data_unit.is_req():
-            msg += "%4s, %2s" % \
-                (data_unit.type, data_unit.page_number)
+            msg += "%4s, %2s %s" % \
+                (data_unit.type, data_unit.page_number, data_unit.packets)
         elif data_unit.is_data():
             msg += "%4s, %2s, %2s" % \
                 (data_unit.type, data_unit.page_number, data_unit.packet_number)
