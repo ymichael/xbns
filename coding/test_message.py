@@ -3,13 +3,24 @@ from nose.tools import ok_
 from message import *
 
 
-def test_round_trip():
+def test_round_trip_long():
     data = "This is a string blah blah blah."
     rows = 5
     m = Message(data)
-    matrix = m.to_matrix(rows)
-    eq_(5, len(matrix))
-    m2 = Message.from_matrix(matrix)
+    m_sized = m.to_size(100)
+    eq_(100, len(m_sized))
+
+    m2 = Message.from_string(m_sized)
+    eq_(data, m2.string)
+
+def test_round_trip_short():
+    data = "This is a string blah blah blah."
+    rows = 5
+    m = Message(data)
+    m_sized = m.to_size(len(data))
+    eq_(32, len(m_sized))
+
+    m2 = Message.from_string(m_sized)
     eq_(data, m2.string)
 
 

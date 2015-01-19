@@ -4,9 +4,7 @@ import itertools
 class Message(object):
     """Represents a message to be sent.
 
-    - Handles conversion from string of bytes to int_array to matrix with a
-    given number of rows.
-    - Also handles padding and unpadding of initial message to fit in a matrix.
+    Handles padding and unpadding of initial message to fit in a certain size.
     """
     # Escape bytes
     END = 192
@@ -17,38 +15,26 @@ class Message(object):
     def __init__(self, string):
         self.string = string
 
-    def to_int_array(self):
-        return [ord(x) for x in self.string]
-
-    def to_matrix(self, rows):
-        size = len(self.string)
-        if size % rows != 0:
-            size += rows
-            size -= (size % rows)
-
-        int_array = self.to_int_array()
+    def to_size(self, size):
+        int_array = self.to_int_array(self.string)
         int_array = self.escape(int_array)
         int_array = self.addpadding(int_array, size)
-
-        matrix = []
-        idx = 0
-        column = size/rows
-        while idx < size:
-            matrix.append(int_array[idx:idx + column])
-            idx += column
-        return matrix
+        return self.int_array_to_string(int_array)
 
     @classmethod
-    def from_matrix(cls, matrix):
-        int_array = list(itertools.chain(*matrix))
-        int_array = [int(round(x)) for x in int_array]
+    def from_string(cls, string):
+        int_array = cls.to_int_array(string)
         int_array = cls.removepadding(int_array)
         int_array = cls.unescape(int_array)
-        return cls.from_int_array(int_array)
+        return cls(cls.int_array_to_string(int_array))
 
     @classmethod
-    def from_int_array(cls, int_array):
-        return Message("".join(chr(x) for x in int_array))
+    def to_int_array(cls, string):
+        return [ord(x) for x in string]
+
+    @classmethod
+    def int_array_to_string(cls, int_array):
+        return "".join(chr(x) for x in int_array)
 
     @classmethod
     def escape(cls, int_array):

@@ -121,16 +121,14 @@ class Deluge(net.layers.application.Application):
         self.complete_pages = []
         self.buffering_pages = {}
         self._split_data_into_pages_and_packets(data)
-
         self._set_inconsistent()
         self._start_next_round(delay=0)
 
     def _split_data_into_pages_and_packets(self, data):
-        # TODO: Handle padding of variable length data.
         if (len(data) % self.PAGE_SIZE) != 0:
-            padding = (len(data) + self.PAGE_SIZE)
-            padding -= padding % self.PAGE_SIZE
-            data += 'x' * (padding - len(data))
+            pad_to_size = len(data) + self.PAGE_SIZE
+            pad_to_size -= pad_to_size % self.PAGE_SIZE
+            data = coding.message.Message(data).to_size(pad_to_size)
 
         current_index = 0
         page_number = 0
@@ -145,6 +143,14 @@ class Deluge(net.layers.application.Application):
                 current_index += self.PACKET_SIZE
             self.complete_pages.append(packets)
             page_number += 1
+
+    def get_data(self):
+        packets = []
+        for page in self.complete_pages:
+            for packet_number in xrange(self.PACKETS_PER_PAGE):
+                packets.append(page[packet_number])
+        m = coding.message.Message.from_string("".join(packets))
+        return m.string
 
     def __init__(self):
         super(Deluge, self).__init__()
