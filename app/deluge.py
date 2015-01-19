@@ -29,15 +29,22 @@ class DelugePDU(object):
         self.message = message
 
         if self.is_adv():
-            self.version, self.largest_completed_page = \
-                pickle.loads(self.message)
+            self._init_adv()
         elif self.is_req():
-            self.version, self.page_number, self.packets = \
-                pickle.loads(self.message)
+            self._init_req()
         elif self.is_data():
-            self.version, self.page_number, self.packet_number = \
-                struct.unpack(self.DATA_HEADER, self.message[:self.DATA_HEADER_SIZE])
-            self.data = self.message[self.DATA_HEADER_SIZE:]
+            self._init_data()
+
+    def _init_adv(self):
+        self.version, self.largest_completed_page = pickle.loads(self.message)
+
+    def _init_req(self):
+        self.version, self.page_number, self.packets = pickle.loads(self.message)
+
+    def _init_data(self):
+        self.version, self.page_number, self.packet_number = \
+            struct.unpack(self.DATA_HEADER, self.message[:self.DATA_HEADER_SIZE])
+        self.data = self.message[self.DATA_HEADER_SIZE:]
 
     @property
     def type(self):
