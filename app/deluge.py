@@ -454,4 +454,4 @@ class Deluge(net.layers.application.Application):
         return random.uniform(0, self.t / 2.0)
 
     def _get_random_t_tx(self):
-        return random.uniform(0, self.t)
+        return random.uniform(0, self.t / 2.0)
