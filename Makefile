@@ -25,7 +25,7 @@ start:
 		--port=$(SERIALPORT)
 
 sim:
-	PYTHONPATH=. python sim/main.py
+	PYTHONPATH=. python sim/main.py $(ARGS)
 
 test:
 	PYTHONPATH=. nosetests

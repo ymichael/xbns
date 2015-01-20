@@ -5,12 +5,13 @@ import random
 
 
 class Network(threading.Thread):
-    def __init__(self, delay=0):
+    def __init__(self, delay=0, loss=0):
         super(Network, self).__init__()
         self.outgoing_links = defaultdict(set)
         self.nodes = {}
         self.daemon = True
         self.delay = delay
+        self.loss = loss
 
     def _add_link(self, a, b):
         """Adds an outgoing link from `a` to `b`."""
@@ -23,10 +24,11 @@ class Network(threading.Thread):
 
     def broadcast(self, data, sender):
         """Broadcast data from sender."""
-        # Radios expect a tuple of (data, sender_addr)
         time.sleep(self.delay)
+        # Radios expect a tuple of (data, sender_addr)
         frame = (data, sender)
 
+        # Determine if packet should be droped.
         for dest in self.outgoing_links[sender]:
             if not self.should_drop_packet(data, sender):
                 self.nodes[dest].incoming_buffer.put(frame)
@@ -34,8 +36,8 @@ class Network(threading.Thread):
                 print 'PACKET DROPPED.'
 
     def should_drop_packet(self, data, sender):
-        # TMP.
-        return random.uniform(0, 10) < .5
+        # TODO: Make use of the data and sender args.
+        return random.random() < self.loss
 
     def process_outgoing(self, addr):
         while True:
