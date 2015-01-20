@@ -34,7 +34,7 @@ Examples:
 * l[5, 1]+1-3,1-4 => list of 5 nodes, with edges between 1, 3 and 1, 4.
 """
 
-COMPONENT_REGEXP = '([lc])\[(\d*)\,?(\d*)?\]'
+COMPONENT_REGEXP = '([lc])\[(\d*)\,?\s?(\d*)?\]'
 
 COMPONENTS = {
     'l': topology.chain,
@@ -85,10 +85,11 @@ def get_topology(topo):
 
 
 def main(args):
+    topology = get_topology(args.topo)
+
     # TODO: Print out a summary of the simulation being run.
     print args
-
-    topology = get_topology(args.topo)
+    print topology
 
     # Set up nodes in the network.
     nodes = {}
@@ -123,7 +124,7 @@ if __name__ == '__main__':
                         choices=PROTOCOLS.keys(),
                         help='Protocol to run in simulation.')
     # TODO: A easy way to specify topology.
-    parser.add_argument('--topo', '-t', default='l[2]-c[3]-l[2]', help=TOPOLOGY_HELP)
+    parser.add_argument('--topo', '-t', default='l[2, 1]-c[3, 10]-l[2, 20]', help=TOPOLOGY_HELP)
     parser.add_argument('--seed', '-s', nargs='*', type=int, default=[1],
                         help='Node IDs to seed the file initially, defaults to 1')
     parser.add_argument('--loss', '-l', default=0, type=int,
