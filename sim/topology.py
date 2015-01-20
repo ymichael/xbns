@@ -18,6 +18,10 @@ def largest_addr(topo):
     return max(all_nodes(topo))
 
 
+def smallest_addr(topo):
+    return min(all_nodes(topo))
+
+
 def merge_topologies(topo1, topo2):
     assert len(all_nodes(topo1).intersection(all_nodes(topo2))) == 0
     retval = []
