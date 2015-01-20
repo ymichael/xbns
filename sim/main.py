@@ -3,7 +3,6 @@ from node import Node
 from pprint import pprint
 
 import argparse
-import re
 import time
 import topology
 
@@ -19,74 +18,9 @@ PROTOCOLS = {
     'rateless': app.rateless_deluge.RatelessDeluge,
 }
 
-TOPOLOGY_HELP = """\
-Specify the network topology of the network.
-* Node IDs will be assigned from the left to right in order.
-* Node IDs start from 1.
-* Links are always between the last node of the left component
-  and the first node of the right component.
-
-Examples:
-* l[2] => list of 2 nodes
-* c[3] => clique of 2 nodes
-* l[2]-c[3] => list of 2 nodes connected to a clique of 3 nodes
-* l[2, 3] => list of 2 node, node id starting from 3
-* c[3, 10] => clique of 2 nodes, node id starting from 10
-* l[5, 1]+1-3,1-4 => list of 5 nodes, with edges between 1, 3 and 1, 4.
-"""
-
-COMPONENT_REGEXP = '([lc])\[(\d*)\,?\s?(\d*)?\]'
-
-COMPONENTS = {
-    'l': topology.chain,
-    'c': topology.clique,
-}
-
-
-def get_topology(topo):
-    topo_parts = topo.split('+')
-    edges = "" if len(topo_parts) == 1 else topo_parts[1]
-    topo = topo_parts[0]
-
-    components = []
-    for component in topo.split('-'):
-        matches = re.search(COMPONENT_REGEXP, component)
-        component_type, number, start_addr = matches.groups()
-        if not start_addr:
-            if len(components) == 0:
-                start_addr = 1
-            else:
-                start_addr = topology.largest_addr(components[-1]) + 1
-        else:
-            start_addr = int(start_addr)
-        components.append(
-            COMPONENTS[component_type](int(number), start_addr))
-
-    # Merge components and add links.
-    while len(components) != 1:
-        last = components.pop()
-        second_last = components.pop()
-        merged = topology.merge_topologies(last, second_last)
-        merged = topology.add_link(
-            merged,
-            topology.largest_addr(second_last),
-            topology.smallest_addr(last))
-        components.append(merged)
-
-    # Add additional edges specified.
-    merged_topology = components[0]
-
-    if edges != '':
-        for edge in edges.split(','):
-            a, b = edge.split('-')
-            merged_topology = topology.add_link(
-                merged_topology, int(a), int(b))
-
-    return merged_topology
-
 
 def main(args):
-    topology = get_topology(args.topo)
+    topo = topology.parse_topology(args.topo)
 
     print "\n"
     print "########################################"
@@ -97,7 +31,7 @@ def main(args):
     print "########################################"
     print "#              TOPOLOGY.               #"
     print "########################################"
-    pprint(topology)
+    pprint(topo)
     print "\n"
     print "########################################"
     print "#            SIMULATION LOG.           #"
@@ -106,7 +40,7 @@ def main(args):
     # Set up nodes in the network.
     nodes = {}
     network = Network(delay=args.delay, loss=args.loss)
-    for addr, outgoing_links in topology:
+    for addr, outgoing_links in topo:
         node = Node.create(addr)
         nodes[addr] = node
         network.add_node(node, outgoing_links)
@@ -136,7 +70,8 @@ if __name__ == '__main__':
                         choices=PROTOCOLS.keys(),
                         help='Protocol to run in simulation.')
     # TODO: A easy way to specify topology.
-    parser.add_argument('--topo', '-t', default='l[2, 1]-c[3, 10]-l[2, 20]', help=TOPOLOGY_HELP)
+    parser.add_argument('--topo', '-t', default='l[2, 1]-c[3, 10]-l[2, 20]',
+                        help=topology.TOPOLOGY_HELP)
     parser.add_argument('--seed', '-s', nargs='*', type=int, default=[1],
                         help='Node IDs to seed the file initially, defaults to 1')
     parser.add_argument('--loss', '-l', default=0, type=int,

@@ -1,3 +1,5 @@
+import re
+
 # A network topology is represented as:
 # [ (<addr>, <set of addrs that node links to>), ...]
 # eg.
@@ -111,3 +113,63 @@ def chain(length, start_addr=0):
     """Returns a network with n nodes connected in a chain."""
     return nary_tree(length - 1, 1, start_addr=start_addr)
 
+TOPOLOGY_HELP = """\
+Specify the network topology of the network.
+* Node IDs will be assigned from the left to right in order.
+* Node IDs start from 1.
+* Links are always between the last node of the left component
+  and the first node of the right component.
+
+Examples:
+* l[2] => list of 2 nodes
+* c[3] => clique of 2 nodes
+* l[2]-c[3] => list of 2 nodes connected to a clique of 3 nodes
+* l[2, 3] => list of 2 node, node id starting from 3
+* c[3, 10] => clique of 2 nodes, node id starting from 10
+* l[5, 1]+1-3,1-4 => list of 5 nodes, with edges between 1, 3 and 1, 4.
+"""
+
+COMPONENT_REGEXP = '([lc])\[(\d*)\,?\s?(\d*)?\]'
+
+COMPONENTS_FUNC = {
+    'l': chain,
+    'c': clique,
+}
+
+
+def parse_topology(topo):
+    topo_parts = topo.split('+')
+    edges = "" if len(topo_parts) == 1 else topo_parts[1]
+    topo = topo_parts[0]
+
+    components = []
+    for component in topo.split('-'):
+        matches = re.search(COMPONENT_REGEXP, component)
+        component_type, number, start_addr = matches.groups()
+        if not start_addr:
+            if len(components) == 0:
+                start_addr = 1
+            else:
+                start_addr = largest_addr(components[-1]) + 1
+        else:
+            start_addr = int(start_addr)
+        components.append(
+            COMPONENTS_FUNC[component_type](int(number), start_addr))
+
+    # Merge components and add links.
+    while len(components) != 1:
+        last = components.pop()
+        second_last = components.pop()
+        merged = merge_topologies(last, second_last)
+        merged = add_link(merged, largest_addr(second_last), smallest_addr(last))
+        components.append(merged)
+
+    # Add additional edges specified.
+    merged_topology = components[0]
+
+    if edges != '':
+        for edge in edges.split(','):
+            a, b = edge.split('-')
+            merged_topology = add_link(merged_topology, int(a), int(b))
+
+    return merged_topology
