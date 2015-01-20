@@ -74,9 +74,9 @@ if __name__ == '__main__':
                         help=topology.TOPOLOGY_HELP)
     parser.add_argument('--seed', '-s', nargs='*', type=int, default=[1],
                         help='Node IDs to seed the file initially, defaults to 1')
-    parser.add_argument('--loss', '-l', default=0, type=int,
+    parser.add_argument('--loss', '-l', default=0, type=float,
                         help='The packet loss rate, defaults to 0.')
-    parser.add_argument('--delay', '-d', default=0, type=int,
+    parser.add_argument('--delay', '-d', default=0, type=float,
                         help='The propogation delay in the shared medium, defaults to 0.')
     parser.add_argument('--file', '-f', type=argparse.FileType(),
                         default='./data/2.in',
