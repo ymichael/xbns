@@ -86,6 +86,8 @@ def get_topology(topo):
 
 def main(args):
     # TODO: Print out a summary of the simulation being run.
+    print args
+
     topology = get_topology(args.topo)
 
     # Set up nodes in the network.
