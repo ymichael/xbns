@@ -1,5 +1,6 @@
 from network import Network
 from node import Node
+from pprint import pprint
 
 import argparse
 import re
@@ -87,9 +88,20 @@ def get_topology(topo):
 def main(args):
     topology = get_topology(args.topo)
 
-    # TODO: Print out a summary of the simulation being run.
-    print args
-    print topology
+    print "\n"
+    print "########################################"
+    print "#        SIMULATION PARAMETERS.        #"
+    print "########################################"
+    pprint(args.__dict__)
+    print "\n"
+    print "########################################"
+    print "#              TOPOLOGY.               #"
+    print "########################################"
+    pprint(topology)
+    print "\n"
+    print "########################################"
+    print "#            SIMULATION LOG.           #"
+    print "########################################"
 
     # Set up nodes in the network.
     nodes = {}
