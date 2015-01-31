@@ -45,11 +45,13 @@ class RatelessDelugePDU(deluge.DelugePDU):
 
 
 class RatelessDeluge(deluge.Deluge):
+    ADDRESS = ("", 11003)
+
     ROWS_REQUIRED = 10
     PDU_CLS = RatelessDelugePDU
 
-    def __init__(self):
-        super(RatelessDeluge, self).__init__()
+    def __init__(self, addr):
+        super(RatelessDeluge, self).__init__(addr)
 
         # Mapping of page => number of DATA packets required.
         self._pending_datas = {}
@@ -119,7 +121,6 @@ class RatelessDeluge(deluge.Deluge):
                     max(data_unit.number_of_packets, 
                         self._pending_datas.get(data_unit.page_number, 0))
                 self._start_next_round(delay=0)
-
 
     def _process_data(self, data_unit):
         self.req_and_data_overheard += 1

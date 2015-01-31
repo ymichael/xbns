@@ -1,4 +1,5 @@
 import net.layers.application
+import net.layers.transport
 import coding.message
 import pickle
 import struct
@@ -114,7 +115,8 @@ class DelugeState(object):
 
 
 class Deluge(net.layers.application.Application):
-    PORT = 11
+    ADDRESS = ("", 11002)
+
     PAGE_SIZE = 1000
     PACKET_SIZE = 100
     PACKETS_PER_PAGE = 10
@@ -129,9 +131,6 @@ class Deluge(net.layers.application.Application):
     # Classes to use
     PDU_CLS = DelugePDU
     STATE_CLS = DelugeState
-
-    def get_port(self):
-        return self.PORT
 
     def new_version(self, version, data):
         # Only update if the version is later than the current version.
@@ -173,8 +172,8 @@ class Deluge(net.layers.application.Application):
         m = coding.message.Message.from_string("".join(packets))
         return m.string
 
-    def __init__(self):
-        super(Deluge, self).__init__()
+    def __init__(self, addr):
+        super(Deluge, self).__init__(addr)
 
         # The current version
         self.version = 0
@@ -341,9 +340,10 @@ class Deluge(net.layers.application.Application):
             self._send_pdu(data)
         self._change_state(self.STATE_CLS.MAINTAIN)
 
-    def process_incoming(self, data, metadata=None):
-        data_unit = self.PDU_CLS.from_string(data)
-        self._log_receive_pdu(data_unit, metadata)
+    def _handle_incoming(self, data):
+        transport_pdu = net.layers.transport.TransportPDU.from_string(data)
+        data_unit = self.PDU_CLS.from_string(transport_pdu.message)
+        self._log_receive_pdu(data_unit, transport_pdu.source_addr)
 
         if data_unit.is_adv():
             self._process_adv(data_unit)
@@ -441,8 +441,8 @@ class Deluge(net.layers.application.Application):
     def _log_send_pdu(self, data_unit):
         self.log("Sending message (%s): %s" % (len(data_unit.to_string()), repr(data_unit)))
 
-    def _log_receive_pdu(self, data_unit, metadata):
-        self.log("Received message from %3s: %s" % (metadata.sender_addr, repr(data_unit)))
+    def _log_receive_pdu(self, data_unit, sender_addr):
+        self.log("Received message from %3s: %s" % (sender_addr, repr(data_unit)))
 
     def _log_round(self):
         self.log('Starting round %3s' % self.round_number)

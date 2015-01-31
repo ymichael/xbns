@@ -1,0 +1,4 @@
+# Ports used
+flooding 		11001
+deluge 			11002
+rateless 		11003

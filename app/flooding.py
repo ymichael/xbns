@@ -22,28 +22,20 @@ class FloodingPDU(object):
 
 
 class Flooding(net.layers.application.Application):
-    PORT = 10
+    ADDRESS = ("", 11001)
 
-    def __init__(self):
-        super(Flooding, self).__init__()
+    def __init__(self, addr):
+        super(Flooding, self).__init__(addr)
         self.current_number = 0
 
-    def get_port(self):
-        return self.PORT
-
-    def process_incoming(self, data, metadata=None):
+    def _handle_incoming(self, data):
         data_unit = FloodingPDU.from_string(data)
         self.flood_update(data_unit.number, data_unit.message)
 
     def flood_update(self, number, update):
         if self.current_number >= number:
             return
-
         self.current_number = number
-        self.logger.debug("(%s, %s): Received: %s" % \
-            (self.addr, self.get_port(), number))
-
+        self.logger.debug("(%s): Received: %s" % (self.addr, number))
         self.send(FloodingPDU(number, update).to_string())
-
-        self.logger.debug("(%s, %s): Sent: %s" % \
-            (self.addr, self.get_port(), number))
+        self.logger.debug("(%s): Sent: %s" % (self.addr, number))
