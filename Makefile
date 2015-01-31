@@ -42,6 +42,3 @@ rsync:
 		--exclude=*.pyc \
 		--exclude=out \
 		. michael@bone:~/xbns
-
-rsync-xbee:
-	rsync -avz .venv/lib/python2.7/site-packages/xbee michael@bone:~/xbns
