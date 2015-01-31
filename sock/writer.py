@@ -17,8 +17,11 @@ class BufferedWriter(threading.Thread):
     def run(self):
         while True:
             data = self._queue.get()
-            with Writer(self.socket_address) as w:
-                w.write(data)
+            try:
+                with Writer(self.socket_address) as w:
+                    w.write(data)
+            except socket.error as msg:
+                print msg
 
 
 class Writer(object):
@@ -42,6 +45,6 @@ def main():
     with Writer(server_address) as w:
         w.write("This is a message")
 
-    
+
 if __name__ == '__main__':
     main()
