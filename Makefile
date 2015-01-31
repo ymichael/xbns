@@ -17,11 +17,7 @@ port:
 	echo $(SERIALPORT)
 
 start:
-	PYTHONPATH=. python net/main.py \
-		--panid=$(PANID) \
-		--channel=$(CHANNEL) \
-		--myid=$(MYID) \
-		--port=$(SERIALPORT)
+	PYTHONPATH=. python net/main.py --port=$(SERIALPORT)
 
 app:
 	PYTHONPATH=. python net/layers/application.py
@@ -44,12 +40,7 @@ rsync:
 		--exclude=.git \
 		--exclude=.venv \
 		--exclude=*.pyc \
-		--exclude=Makefile \
 		. michael@bone:~/xbns
 
 rsync-xbee:
 	rsync -avz .venv/lib/python2.7/site-packages/xbee michael@bone:~/xbns
-
-# rsync makefile.
-rsync-makefile:
-	rsync Makefile michael@bone:~/xbns/Makefile

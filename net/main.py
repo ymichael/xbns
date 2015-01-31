@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import argparse
+import config
 import layers.datalink
 import layers.physical
 import layers.transport
@@ -12,11 +13,23 @@ def main(args):
     def string_to_int(int_or_hex):
         return int(int_or_hex, 16 if int_or_hex.startswith("0x") else 10)
 
-    # Set up and configure XBee Radio.
-    myid = string_to_int(args.myid)
+    if args.myid:
+        myid = string_to_int(args.myid)
+    else:
+        myid = config.ADDR
     addr = myid
-    panid = string_to_int(args.panid)
-    channel = string_to_int(args.channel)
+
+    if args.panid:
+        panid = string_to_int(args.panid)
+    else:
+        panid = config.PANID
+
+    if args.channel:
+        channel = string_to_int(args.channel)
+    else:
+        channel = config.CHANNEL
+
+    # Set up and configure XBee Radio.
     xbeeradio = radio.xbeeradio.XBeeRadio.create(
         args.port, args.baudrate, panid, channel, myid)
 
@@ -54,9 +67,8 @@ if __name__ == '__main__':
                         help='Serial port')
     parser.add_argument('-b', '--baudrate', default=57600, type=int,
                         help='Baudrate')
-    parser.add_argument('-m', '--myid', required=True, help='Module id, 16-bit')
-    parser.add_argument('-p', '--panid', required=True,
+    parser.add_argument('-m', '--myid', help='Module id, 16-bit')
+    parser.add_argument('-p', '--panid',
                         help='Personal Area Network (PAN) id, 64-bit, eg. 0x1234')
-    parser.add_argument('-c', '--channel', required=True,
-                        help='Channel, 0x0B - 0x1A (11 - 26)')
+    parser.add_argument('-c', '--channel', help='Channel, 0x0B - 0x1A (11 - 26)')
     main(parser.parse_args())
