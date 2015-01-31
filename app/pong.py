@@ -13,7 +13,7 @@ class Pong(net.layers.application.Application):
 
         # Respond with a Pong.
         dest_addr = pdu.source_addr
-        dest_port = ping.ADDRESS[1]
+        dest_port = ping.Ping.ADDRESS[1]
         self._send('PONG', dest_port, dest_addr)
         self.logger.debug("Sent a PONG to %s" % dest_addr)
 
