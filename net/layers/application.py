@@ -3,7 +3,6 @@ import Queue as queue
 import sock.reader
 import sock.writer
 import socket
-import struct
 import transport
 
 
@@ -53,24 +52,32 @@ class Application(base.BaseLayer):
     def _handle_incoming_message(self, message):
         print message
 
+    def _idle(self):
+        import time
+        while True:
+            time.sleep(1)
+
+    @classmethod
+    def run_application(cls):
+        import config
+        app = cls(config.ADDR)
+
+        # Start up Application
+        # - handle incoming packets from the transport layer.
+        app.start_handling_incoming(app.get_incoming_socket_reader())
+
+        # Create BufferedWriter to write to socket.
+        buffered_writer = sock.writer.BufferedWriter(transport.Transport.ADDRESS)
+        buffered_writer.start()
+        app.set_outgoing_queue(buffered_writer)
+
+        app._idle()
+
 
 def main():
-    # Create Application
-    app = Application(1)
+    Application.run_application()
 
-    # Start up Application
-    # - handle incoming packets from the transport layer.
-    app.start_handling_incoming(app.get_incoming_socket_reader())
-
-    # Create BufferedWriter to write to socket.
-    buffered_writer = sock.writer.BufferedWriter(transport.Transport.ADDRESS)
-    buffered_writer.start()
-    app.set_outgoing_queue(buffered_writer)
-
-    import time
-    while True:
-        app.send("ping.")
-        time.sleep(1)
 
 if __name__ == '__main__':
     main()
+
