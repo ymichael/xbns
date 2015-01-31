@@ -2,25 +2,18 @@ import Queue as queue
 import logging
 import threading
 
- 
-class MetaData(object):
-    # 65535 => \xff\xff
-    BROADCAST_ADDR = 65535
-
-    # Default dest_addr is a broadcast.
-    DEST_ADDR = BROADCAST_ADDR
-
-    def __init__(self):
-        self.dest_addr = self.DEST_ADDR
-        self.source_addr = None
-        self.sender_addr = None
-        self.port = None
+# 65535 => \xff\xff
+BROADCAST_ADDRESS = 65535
 
 
 class BaseLayer(object):
     """Base class for each layer."""
 
-    def __init__(self):
+    def __init__(self, addr):
+        self._init_logger()
+        self.addr = addr
+
+    def _init_logger(self):
         # Each layer has a logger that logs to the console.
         self.logger = logging.getLogger(self.__class__.__name__)
         # TODO: Refactor debug level as a cli argument.
@@ -30,89 +23,33 @@ class BaseLayer(object):
             handler.setFormatter(
                 logging.Formatter("%(name)-10s - %(levelname)-8s: %(message)s"))
             self.logger.addHandler(handler)
-        self.addr = None
-        # From this layer to a higher layer.
-        self._incoming_queue = queue.Queue()
+
+    def start_handling_incoming(self, queue):
+        self._start_handler(queue, self._handle_incoming)
+
+    def start_handling_outgoing(self, queue):
+        self._start_handler(queue, self._handle_outgoing)
+
+    def _start_handler(self, queue, handler):
+        t = threading.Thread(target=self._handler, args=(queue, handler))
+        t.setDaemon(True)
+        t.start()
+
+    def _handler(self, queue, handler):
+        while True:
+            data = queue.get()
+            handler(data)
+
+    def get_outgoing_queue(self):
         # From this layer to a lower layer.
-        self._outgoing_queue = queue.Queue()
+        raise NotImplementedError
 
-    def set_addr(self, addr):
-        self.addr = addr
+    def get_incoming_queue(self):
+        # From this layer to a higher layer.
+        raise NotImplementedError
 
-    def is_incoming_empty(self):
-        """Returns whether the incoming queue is empty.
+    def _handle_incoming(self, data):
+        raise NotImplementedError
 
-        Whether there is any incoming data buffered for the next (higher) layer.
-        """
-        return self._incoming_queue.empty()
-
-    def is_outgoing_empty(self):
-        """Returns whether the outgoing queue is empty.
-
-        Whether there is any outgoing data buffered for the next (lower) layer.
-        """
-        return self._outgoing_queue.empty()
-
-    def get_incoming(self):
-        """Returns the next item in the incoming queue.
-
-        Blocks if queue is empty.
-        """
-        return self._incoming_queue.get()
-
-    def get_outgoing(self):
-        """Returns the next item in the outgoing queue.
-
-        Blocks if queue is empty.
-        """
-        return self._outgoing_queue.get()
-
-    def put_incoming(self, data, metadata=None):
-        self._incoming_queue.put((data, metadata))
-
-    def put_outgoing(self, data, metadata=None):
-        self._outgoing_queue.put((data, metadata))
-
-    def process_incoming(self, data, metadata=None):
-        """Process an incoming unit of data from a lower layer.
-
-        Subclasses should override this method.
-        """
-        self.put_incoming(data, metadata)
-
-    def process_outgoing(self, data, metadata=None):
-        """Process an outgoing unit of data from a upper layer.
-
-        Subclasses should override this method.
-        """
-        self.put_outgoing(data, metadata)
-
-    def start_incoming(self, incoming_layer):
-        while True:
-            try:
-                data, metadata = incoming_layer.get_incoming()
-                self.process_incoming(data, metadata)
-            except Exception, e:
-                print str(e)
-
-    def start_outgoing(self, outgoing_layer):
-        while True:
-            try:
-                data, metadata = outgoing_layer.get_outgoing()
-                self.process_outgoing(data, metadata)
-            except Exception, e:
-                print str(e)
-
-    def start(self, incoming_layer=None, outgoing_layer=None):
-        """Starts threads for either layer, if given."""
-        if incoming_layer is not None:
-            incoming = threading.Thread(
-                target=self.start_incoming, args=(incoming_layer,))
-            incoming.setDaemon(True)
-            incoming.start()
-
-        if outgoing_layer is not None:
-            outgoing = threading.Thread(
-                target=self.start_outgoing, args=(outgoing_layer,))
-            outgoing.setDaemon(True)
-            outgoing.start()
+    def _handle_outgoing(self, data):
+        raise NotImplementedError

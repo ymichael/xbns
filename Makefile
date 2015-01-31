@@ -1,4 +1,4 @@
-.PHONY: start port rsync rmpyc rsync-makefile sim test
+.PHONY: start port rsync rmpyc rsync-makefile sim test app
 
 rmpyc:
 	find . | grep -v .venv | grep .pyc | xargs rm
@@ -18,11 +18,14 @@ port:
 
 
 start:
-	PYTHONPATH=. python net/stack.py \
+	PYTHONPATH=. python net/main.py \
 		--panid=$(PANID) \
 		--channel=$(CHANNEL) \
 		--myid=$(MYID) \
 		--port=$(SERIALPORT)
+
+app:
+	PYTHONPATH=. python net/layers/application.py
 
 sim:
 	PYTHONPATH=. python sim/main.py $(ARGS)

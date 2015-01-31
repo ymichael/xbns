@@ -1,26 +1,37 @@
-import Queue as queue
 import base
+import Queue as queue
+import sock.reader
+import sock.writer
+import socket
 import struct
 import threading
 
 
 class TransportPDU(object):
-    # application id/port number: I
-    HEADER_FORMAT = "I"
+    # H: unsigned short, 2 bytes.
+    # source port: H
+    # source addr: H
+    # dest port: H
+    # dest addr: H
+    HEADER_FORMAT = "HHHH"
     HEADER_SIZE = struct.calcsize(HEADER_FORMAT)
 
-    def __init__(self, port, message):
-        self.port = port
+    def __init__(self, message, source_port, source_addr, dest_port, dest_addr):
         self.message = message
+        self.source_port = source_port
+        self.source_addr = source_addr
+        self.dest_port = dest_port
+        self.dest_addr = dest_addr
 
     def to_string(self):
-        header = struct.pack(self.HEADER_FORMAT, self.port)
+        info = (self.source_port, self.source_addr, self.dest_port, self.dest_addr)
+        header = struct.pack(self.HEADER_FORMAT, *info)
         return header + self.message
 
     @classmethod
     def from_string(cls, data):
         x = struct.unpack(cls.HEADER_FORMAT, data[:cls.HEADER_SIZE])
-        return TransportPDU(x[0], data[cls.HEADER_SIZE:])
+        return TransportPDU(data[cls.HEADER_SIZE:], *x)
 
 
 class Transport(base.BaseLayer):
@@ -29,41 +40,41 @@ class Transport(base.BaseLayer):
     - Responsible for multiplexing between application layers.
     - Allows multiple application to run on the same node.
     """
-    def __init__(self):
-        super(Transport, self).__init__()
-        # Map of ports to apps
-        self.apps = {}
-        self.apps_incoming_queues = {}
+    ADDRESS = ("", 10000)
 
-    def get_incoming(self, port):
-        return self.apps_incoming_queues[port].get()
+    def __init__(self, addr):
+        super(Transport, self).__init__(addr)
 
-    def put_incoming(self, data, metadata=None):
-        # Forward to correct application layer.
-        assert metadata.port is not None
-        assert metadata.port in self.apps
-        self.apps_incoming_queues[metadata.port].put((data, metadata))
+        self._incoming_queue = queue.Queue()
 
-    def process_incoming(self, data, metadata=None):
-        data_unit = TransportPDU.from_string(data)
-        metadata = metadata or base.MetaData()
-        metadata.port = data_unit.port
-        self.put_incoming(data_unit.message, metadata)
+        self._outgoing_queue = queue.Queue()
 
-    def process_outgoing(self, data, metadata=None):
-        # Get values from metadata.
-        port = metadata.port
-        data_unit = TransportPDU(port, data)
-        self.put_outgoing(data_unit.to_string(), metadata)
+    def get_incoming_queue(self):
+        return self._incoming_queue
 
-    def add_app(self, app):
-        # Port numbers should be unique.
-        assert app.get_port() not in self.apps
-        self.apps[app.get_port()] = app
-        self.apps_incoming_queues[app.get_port()] = queue.Queue()
+    def get_outgoing_queue(self):
+        return self._outgoing_queue
 
-        # Listen on the application's outgoing queue.
-        app_outgoing = threading.Thread(
-            target=self.start_outgoing, args=(app,))
-        app_outgoing.setDaemon(True)
-        app_outgoing.start()
+    def get_outgoing_socket_reader(self):
+        # Lazily create socket reader.
+        if not hasattr(self, '_socket_reader'):
+            try:
+                self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                self.socket.bind(self.ADDRESS)
+            except socket.error as msg:
+                self.logger.error(msg)
+                raise RuntimeError(msg)
+            self._socket_reader = sock.reader.Reader(self.socket)
+            self._socket_reader.start()
+        return self._socket_reader
+
+    def _handle_incoming(self, data):
+        transport_pdu = TransportPDU.from_string(data)
+        app_socket_address = ("", transport_pdu.dest_port)
+        with sock.writer.Writer(app_socket_address) as w:
+            w.write(data)
+
+    def _handle_outgoing(self, data):
+        transport_pdu = TransportPDU.from_string(data)
+        # DataLink layer expects tuple of (data, dest_addr).
+        self._outgoing_queue.put((data, transport_pdu.dest_addr))

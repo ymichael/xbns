@@ -1,25 +1,27 @@
 import base
+import Queue as queue
 import threading
 
 
 class Physical(base.BaseLayer):
     """Physical layer, interfaces with a Radio."""
-    def __init__(self, radio):
-        super(Physical, self).__init__();
+    def __init__(self, addr, radio):
+        super(Physical, self).__init__(addr);
         self.radio = radio
+        self._incoming_queue = queue.Queue()
 
-    def process_outgoing(self, data, metadata=None):
-        self.radio.broadcast(data)
+    def start_listen_to_radio(self):
+        listen_to_radio = threading.Thread(target=self._listen_to_radio)
+        listen_to_radio.setDaemon(True)
+        listen_to_radio.start()
 
-    def listen_to_radio(self):
+    def _listen_to_radio(self):
         while True:
-            data, sender_addr = self.radio.receive()
-            metadata = base.MetaData()
-            metadata.sender_addr = sender_addr
-            self.put_incoming(data, metadata)
+            data = self.radio.receive()
+            self._incoming_queue.put(data)
 
-    def start(self, incoming_layer=None, outgoing_layer=None):
-        super(Physical, self).start(outgoing_layer=outgoing_layer)
-        t = threading.Thread(target=self.listen_to_radio)
-        t.setDaemon(True)
-        t.start()
+    def get_incoming_queue(self):
+        return self._incoming_queue
+
+    def _handle_outgoing(self, data):
+        self.radio.broadcast(data)
