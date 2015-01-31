@@ -40,6 +40,7 @@ rsync:
 		--exclude=.git \
 		--exclude=.venv \
 		--exclude=*.pyc \
+		--exclude=out \
 		. michael@bone:~/xbns
 
 rsync-xbee:
