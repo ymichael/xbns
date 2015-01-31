@@ -3,12 +3,6 @@
 rmpyc:
 	find . | grep -v .venv | grep .pyc | xargs rm
 
-
-# XBee network configuration. Change as necessary.
-MYID := 0x1222
-CHANNEL := 0x13
-PANID := 0xabdd
-
 # Find out which serial port to use
 # Matches /dev/tty.usbserial && /dev/ttyUSB0
 SERIALPORT = $(shell find /dev | egrep -i "ttyUSB|tty.*usbserial")
@@ -38,6 +32,7 @@ test:
 rsync:
 	rsync -avz \
 		--exclude=.git \
+		--exclude=addr.txt \
 		--exclude=.venv \
 		--exclude=*.pyc \
 		--exclude=out \
