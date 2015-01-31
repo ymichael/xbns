@@ -1,4 +1,4 @@
-.PHONY: start port rsync rmpyc rsync-makefile sim test app
+.PHONY: start port rsync rmpyc rsync-makefile sim test app pong ping
 
 rmpyc:
 	find . | grep -v .venv | grep .pyc | xargs rm
@@ -16,7 +16,6 @@ SERIALPORT = $(shell find /dev | egrep -i "ttyUSB|tty.*usbserial")
 port:
 	echo $(SERIALPORT)
 
-
 start:
 	PYTHONPATH=. python net/main.py \
 		--panid=$(PANID) \
@@ -26,6 +25,12 @@ start:
 
 app:
 	PYTHONPATH=. python net/layers/application.py
+
+pong:
+	PYTHONPATH=. python app/pong.py
+
+ping:
+	PYTHONPATH=. python app/ping.py
 
 sim:
 	PYTHONPATH=. python sim/main.py $(ARGS)

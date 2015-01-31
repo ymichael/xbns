@@ -2,3 +2,5 @@
 flooding 		11001
 deluge 			11002
 rateless 		11003
+pong            11004
+ping            11005
