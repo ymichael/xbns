@@ -13,7 +13,7 @@ import app.rateless_deluge
 
 # The various protocols that can be used in the simulator.
 PROTOCOLS = {
-    'flooding': app.flooding.Flooding,
+    'flood': app.flooding.Flooding,
     'deluge': app.deluge.Deluge,
     'rateless': app.rateless_deluge.RatelessDeluge,
 }
@@ -51,13 +51,14 @@ def main(args):
     # Run protocol.
     APP_CLS = PROTOCOLS[args.protocol]
     for addr, node in nodes.iteritems():
-        node.add_app(APP_CLS())
+        node.start_application(APP_CLS(addr))
 
     # Read file and seed in the network.
     data = args.file.read()
     args.file.close()
     for addr in args.seed:
-        nodes[addr].get_app(APP_CLS.PORT).new_version(1, data)
+        # TODO. This should be a generic method that works for every protocol.
+        nodes[addr].get_application(APP_CLS.ADDRESS).new_version(1, data)
 
     # Don't terminate.
     time.sleep(500)
