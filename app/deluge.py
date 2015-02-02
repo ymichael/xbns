@@ -1,11 +1,12 @@
+import coding.message
+import hashlib
 import net.layers.application
 import net.layers.transport
-import coding.message
 import pickle
+import random
 import struct
 import threading
 import time
-import random
 
 
 class DelugePDU(object):
@@ -37,7 +38,8 @@ class DelugePDU(object):
             self._init_data()
 
     def _init_adv(self):
-        self.version, self.largest_completed_page = pickle.loads(self.message)
+        self.version, self.largest_completed_page, self.total_pages, self.data_hash = \
+            pickle.loads(self.message)
 
     def _init_req(self):
         self.version, self.page_number, self.packets = pickle.loads(self.message)
@@ -78,7 +80,9 @@ class DelugePDU(object):
             return self._repr_data()
 
     def _repr_adv(self):
-        return "%4s, %2s, %2s" % (self.type, self.version, self.largest_completed_page)
+        return "%4s, %2s, %2s, %3s, %s" % \
+            (self.type, self.version, self.largest_completed_page,
+                    self.total_pages, self.data_hash)
 
     def _repr_req(self):
         return "%4s, %2s %s" % (self.type, self.page_number, self.packets)
@@ -92,8 +96,10 @@ class DelugePDU(object):
         return cls(x[0], data[cls.HEADER_PREFIX_SIZE:])
 
     @classmethod
-    def create_adv_packet(cls, version, largest_completed_page):
-        message = pickle.dumps([version, largest_completed_page])
+    def create_adv_packet(cls, version, largest_completed_page, total_pages,
+            data_hash):
+        message = pickle.dumps(
+            [version, largest_completed_page, total_pages, data_hash])
         return cls(cls.ADV, message)
 
     @classmethod
@@ -141,6 +147,8 @@ class Deluge(net.layers.application.Application):
         self.complete_pages = []
         self.buffering_pages = {}
         self._split_data_into_pages_and_packets(data)
+        self.total_pages = len(self.complete_pages)
+        self.set_data_hash(data)
         self._set_inconsistent()
         self._start_next_round(delay=0)
 
@@ -172,11 +180,24 @@ class Deluge(net.layers.application.Application):
         m = coding.message.Message.from_string("".join(packets))
         return m.string
 
+    def set_data_hash(self, data):
+        self.data_hash = hashlib.md5(data).hexdigest()
+
+    def check_if_completed(self):
+        if len(self.complete_pages) == self.total_pages:
+            self.set_data_hash(self.get_data())
+
     def __init__(self, addr):
         super(Deluge, self).__init__(addr)
 
         # The current version
         self.version = 0
+
+        # An MD5 hash of the current data.
+        self.data_hash = None
+
+        # The number of pages in the current version.
+        self.total_pages = 0
 
         # The current round.
         self.round_number = 0
@@ -287,7 +308,8 @@ class Deluge(net.layers.application.Application):
         if self.adv_overheard >= self.K:
             self.log("Suppressed ADV")
             return
-        adv = self.PDU_CLS.create_adv_packet(self.version, len(self.complete_pages))
+        adv = self.PDU_CLS.create_adv_packet(self.version,
+            len(self.complete_pages), self.total_pages, self.data_hash)
         self._send_pdu(adv)
 
     def _send_req_delayed(self):
@@ -358,7 +380,8 @@ class Deluge(net.layers.application.Application):
             self.version = data_unit.version
             self.buffering_pages = {}
             self.complete_pages = []
-        
+            self.total_pages = data_unit.total_pages
+
         if data_unit.largest_completed_page == len(self.complete_pages):
             # Network is consistent if summary overheard is similar to self.
             self.adv_overheard += 1
@@ -418,6 +441,7 @@ class Deluge(net.layers.application.Application):
         while next_page in self.buffering_pages and \
                 len(self.buffering_pages[next_page]) == self.PACKETS_PER_PAGE:
             self.complete_pages.append(self.buffering_pages[next_page])
+            self.check_if_completed()
             if self.state == self.STATE_CLS.RX and next_page == self._page_to_req:
                 self._page_to_req = None
                 self._change_state(self.STATE_CLS.MAINTAIN)

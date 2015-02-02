@@ -152,6 +152,7 @@ class RatelessDeluge(deluge.Deluge):
         while next_page in self.buffering_pages and self.buffering_pages[next_page].is_solved():
             matrix = self.buffering_pages[next_page].solve()
             self.complete_pages.append(matrix)
+            self.check_if_completed()
             if self.state == self.STATE_CLS.RX and next_page == self._page_to_req:
                 self._page_to_req = None
                 self._change_state(self.STATE_CLS.MAINTAIN)
