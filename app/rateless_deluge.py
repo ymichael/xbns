@@ -26,8 +26,8 @@ class RatelessDelugePDU(deluge.DelugePDU):
         x = struct.unpack(self.DATA_FORMAT, self.message)
         self.version = x[0]
         self.page_number = x[1]
-        self.coeffs = x[2:12]
-        self.data = x[12:]
+        self.coeffs = x[2:2 + ROWS_REQUIRED]
+        self.data = x[2 + ROWS_REQUIRED:]
 
     def _repr_req(self):
         return "%4s, %2s %s" % (self.type, self.page_number, self.number_of_packets)
