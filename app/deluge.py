@@ -117,9 +117,9 @@ class DelugeState(object):
 class Deluge(net.layers.application.Application):
     ADDRESS = ("", 11002)
 
-    PAGE_SIZE = 1000
-    PACKET_SIZE = 100
-    PACKETS_PER_PAGE = 10
+    PAGE_SIZE = 1024
+    PACKET_SIZE = 64
+    PACKETS_PER_PAGE = PAGE_SIZE / PACKET_SIZE
 
     # Bounds for the length of each round.
     T_MIN = 1

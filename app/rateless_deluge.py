@@ -8,10 +8,15 @@ import random
 import struct
 
 
+# TODO: Fix this circular dependency.
+ROWS_REQUIRED = deluge.Deluge.PACKETS_PER_PAGE
+
+
 class RatelessDelugePDU(deluge.DelugePDU):
     # I: unsigned int
-    # version, page_number, coeffs, data 
-    DATA_FORMAT = "II" + ("B" * 10) + ("B" * 100)
+    # version, page_number, coeffs, data
+    DATA_FORMAT = "II" + ("B" * ROWS_REQUIRED) + \
+        ("B" * deluge.Deluge.PACKET_SIZE)
 
     def _init_req(self):
         self.version, self.page_number, self.number_of_packets = \
@@ -47,7 +52,6 @@ class RatelessDelugePDU(deluge.DelugePDU):
 class RatelessDeluge(deluge.Deluge):
     ADDRESS = ("", 11003)
 
-    ROWS_REQUIRED = 10
     PDU_CLS = RatelessDelugePDU
 
     def __init__(self, addr):
@@ -86,14 +90,14 @@ class RatelessDeluge(deluge.Deluge):
 
     def _create_req(self):
         if self._page_to_req not in self.buffering_pages:
-            packets_required = self.ROWS_REQUIRED
+            packets_required = ROWS_REQUIRED
         else:
             packets_required = self.buffering_pages[self._page_to_req].get_rows_required()
         return self.PDU_CLS.create_req_packet(
             self.version, self._page_to_req, packets_required)
 
     def _get_random_coeffs(self):
-        return [random.randint(0, 255) for i in xrange(self.ROWS_REQUIRED)]
+        return [random.randint(0, 255) for i in xrange(ROWS_REQUIRED)]
 
     def _send_data(self):
         for page, number_of_packets in self._pending_datas.items():
@@ -118,7 +122,7 @@ class RatelessDeluge(deluge.Deluge):
             if self.state == self.STATE_CLS.MAINTAIN:
                 self._change_state(self.STATE_CLS.TX)
                 self._pending_datas[data_unit.page_number] = \
-                    max(data_unit.number_of_packets, 
+                    max(data_unit.number_of_packets,
                         self._pending_datas.get(data_unit.page_number, 0))
                 self._start_next_round(delay=0)
 
