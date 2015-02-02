@@ -72,8 +72,11 @@ class Transport(base.BaseLayer):
     def _handle_incoming(self, data):
         transport_pdu = TransportPDU.from_string(data)
         app_socket_address = ("", transport_pdu.dest_port)
-        with sock.writer.Writer(app_socket_address) as w:
-            w.write(data)
+        try:
+            with sock.writer.Writer(app_socket_address) as w:
+                w.write(data)
+        except socket.error as msg:
+            self.logger.error(msg)
 
     def _handle_outgoing(self, data):
         transport_pdu = TransportPDU.from_string(data)
