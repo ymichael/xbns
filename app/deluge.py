@@ -123,7 +123,7 @@ class Deluge(net.layers.application.Application):
 
     # Bounds for the length of each round.
     T_MIN = 1
-    T_MAX = 20
+    T_MAX = 60 * 10 # 10 minutes
 
     # Threshold of overheard packets for message suppression.
     K = 1
@@ -194,7 +194,7 @@ class Deluge(net.layers.application.Application):
         # The length of the window. This is dynamically adjusted to be between
         # T_MIN and T_MAX to allow for fast propagation of new versions and low
         # maintainance overhead.
-        self.t = self.T_MAX
+        self.t = self.T_MIN
 
         # Number of ADV overheard with similar summaries.
         self.adv_overheard = 0
