@@ -11,11 +11,15 @@ class DataLinkPDU(object):
     # total_size: I
     # piece_number: I
     HEADER_FORMAT = "HHBBII"
+
     # https://docs.python.org/2/library/struct.html
     # B: unsigned char, 1 byte.
     # H: unsigned short, 2 bytes.
     # I: unsigned int, 4 bytes.
     HEADER_SIZE = struct.calcsize(HEADER_FORMAT)
+
+    # Max payload size: 100
+    # Source: http://www.digi.com/support/kbase/kbaseresultdetl?id=3345
     MAX_DATA_SIZE = 100 - HEADER_SIZE
 
     def __init__(self, source_addr, dest_addr, message_id, ttl, total_size,
