@@ -3,6 +3,7 @@ import Queue as queue
 import sock.reader
 import sock.writer
 import socket
+import time
 import transport
 
 
@@ -31,7 +32,6 @@ class Application(base.BaseLayer):
             data, source_port, source_addr, dest_port, dest_addr)
         self._outgoing_queue.put(transport_pdu.to_string())
 
-
     def get_incoming_socket_reader(self):
         # Lazily create socket reader.
         if not hasattr(self, '_socket_reader'):
@@ -51,32 +51,36 @@ class Application(base.BaseLayer):
         self._handle_incoming_message(transport_pdu.message)
 
     def _handle_incoming_message(self, message):
-        print message
+        self.log(message)
 
-    def _idle(self):
-        import time
-        while True:
-            time.sleep(1)
+    def log(self, message):
+        self.logger.info(message)
 
     @classmethod
-    def run_application(cls):
+    def create_and_run_application(cls):
         import config
         app = cls(config.ADDR)
+        app.log("Starting Application...")
 
         # Start up Application
         # - handle incoming packets from the transport layer.
+        app.log("Connecting to incoming socket...")
         app.start_handling_incoming(app.get_incoming_socket_reader())
 
         # Create BufferedWriter to write to socket.
+        app.log("Connecting to outgoing socket...")
         buffered_writer = sock.writer.BufferedWriter(transport.Transport.ADDRESS)
         buffered_writer.start()
         app.set_outgoing_queue(buffered_writer)
 
-        app._idle()
+        app.log("Application started!")
+        return app
 
 
 def main():
-    Application.run_application()
+    Application.create_and_run_application()
+    while True:
+        time.sleep(1)
 
 
 if __name__ == '__main__':

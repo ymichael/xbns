@@ -10,21 +10,19 @@ class Ping(net.layers.application.Application):
 
     def _handle_incoming(self, data):
         pdu = net.layers.transport.TransportPDU.from_string(data)
-        self.logger.debug("Received a %s from %s" % (pdu.message, pdu.source_addr))
+        self.log("Received a %s from %s" % (pdu.message, pdu.source_addr))
 
-    def _broadcast_ping(self):
+    def broadcast_ping(self):
         dest_port = pong.Pong.ADDRESS[1]
         self._send('PING', dest_port)
-        self.logger.debug("BROADCAST a PING")
-
-    def _idle(self):
-        while True:
-            self._broadcast_ping()
-            time.sleep(1)
+        self.log("BROADCAST a PING")
 
 
 def main():
-    Ping.run_application()
+    app = Ping.create_and_run_application()
+    while True:
+        app.broadcast_ping()
+        time.sleep(1)
 
 
 if __name__ == '__main__':
