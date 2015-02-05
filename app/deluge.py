@@ -488,10 +488,10 @@ class Deluge(net.layers.application.Application):
         self.log("Changing state from %5s to %5s" % (self.state, new_state))
 
     def _get_random_t_adv(self):
-        return random.uniform(self.t / 2.0, self.t)
+        return random.uniform(2.0 / 3 * self.t, self.t)
 
     def _get_random_t_req(self):
-        return random.uniform(0, self.t / 2.0)
+        return random.uniform(1.0 / 3 * self.t, 2.0 / 3 * self.t)
 
     def _get_random_t_tx(self):
-        return random.uniform(0, self.t / 2.0)
+        return random.uniform(0, self.t / 3.0)
