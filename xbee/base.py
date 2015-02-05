@@ -81,7 +81,7 @@ class XBeeBase(threading.Thread):
         result to the serial port
         """
         frame = APIFrame(data, self._escaped).output()
-        print 'Sending', [ord(x) for x in frame]
+        # print 'Sending', [ord(x) for x in frame]
         self.serial.write(frame)
 
     def run(self):
@@ -135,7 +135,7 @@ class XBeeBase(threading.Thread):
                         frame.fill(byte)
 
                 try:
-                    print 'Received', [ord(x) for x in frame.raw_data]
+                    # print 'Received', [ord(x) for x in frame.raw_data]
                     # Try to parse and return result
                     frame.parse()
 
