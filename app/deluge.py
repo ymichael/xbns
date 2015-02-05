@@ -470,8 +470,9 @@ class Deluge(net.layers.application.Application):
         self.rounds_in_state = 0
 
     def log(self, message):
-        prefix = "(%2s, %5s, %3s, %4s)" % \
-            (self.addr, self.state, len(self.complete_pages), self.t)
+        prefix = "(%2s, %5s, [v%s, %02d/%02d], %4s)" % \
+            (self.addr, self.state, self.version, len(self.complete_pages),
+                self.total_pages, self.t)
         self.logger.info("%s - %s" % (prefix, message))
 
     def _log_send_pdu(self, data_unit):
