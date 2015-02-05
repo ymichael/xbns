@@ -1,0 +1,11 @@
+[Unit]
+Description=XBNS
+
+[Service]
+ExecStart=/home/michael/xbns/bin/xbns
+KillMode=process
+Type=idle
+Restart=1
+
+[Install]
+WantedBy=multi-user.target

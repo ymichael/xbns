@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+### BEGIN INIT INFO
+# Provides:          apps
+# Required-Start:    $local_fs $network
+# Required-Stop:     $local_fs
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: apps
+# Description:       Runs various applications on start up.
+### END INIT INFO
+
+cd /home/michael/xbns
+
+# Pong app
+PYTHONPATH=. python ./app/pong.py &
+
+# Deluge app
+PYTHONPATH=. python ./app/run_deluge.py &

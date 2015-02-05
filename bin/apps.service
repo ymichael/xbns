@@ -1,0 +1,11 @@
+[Unit]
+Description=Apps
+
+[Service]
+ExecStart=/home/michael/xbns/bin/apps
+KillMode=process
+Type=idle
+Restart=1
+
+[Install]
+WantedBy=multi-user.target
