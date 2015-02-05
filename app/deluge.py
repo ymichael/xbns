@@ -389,6 +389,10 @@ class Deluge(net.layers.application.Application):
         elif data_unit.version < self.version:
             self._set_inconsistent()
             return
+        else:
+            # Update total_pages.
+            self.total_pages = data_unit.total_pages
+
 
         if data_unit.largest_completed_page == len(self.complete_pages):
             # Network is consistent if summary overheard is similar to self.
