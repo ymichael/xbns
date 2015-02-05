@@ -5,7 +5,6 @@ from message import *
 
 def test_round_trip_long():
     data = "This is a string blah blah blah."
-    rows = 5
     m = Message(data)
     m_sized = m.to_size(100)
     eq_(100, len(m_sized))
@@ -13,9 +12,16 @@ def test_round_trip_long():
     m2 = Message.from_string(m_sized)
     eq_(data, m2.string)
 
+def test_round_trip_long2():
+    data = "".join(Message.int_array_to_string(list(xrange(256))))
+    m = Message(data)
+    m_sized = m.to_size(300)
+    eq_(300, len(m_sized))
+    m2 = Message.from_string(m_sized)
+    eq_(data, m2.string)
+
 def test_round_trip_short():
     data = "This is a string blah blah blah."
-    rows = 5
     m = Message(data)
     m_sized = m.to_size(len(data))
     eq_(32, len(m_sized))
