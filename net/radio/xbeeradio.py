@@ -69,7 +69,7 @@ class XBeeRadio(base.BaseRadio):
             raise ValueError("Expected Channel id = [11, 26], got: %s" % channel)
         # Create xbee module
         serial_object = serial.Serial(port, baudrate)
-        xbee_module = xbee.XBee(serial_object)
+        xbee_module = xbee.XBee(serial_object, escaped=True)
         # Create radio
         radio = XBeeRadio(xbee_module)
         radio.set_panid(panid)
