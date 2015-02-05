@@ -13,6 +13,12 @@ port:
 start:
 	PYTHONPATH=. python net/main.py --port=$(SERIALPORT)
 
+receive:
+	PYTHONPATH=. python test/receive.py --port=$(SERIALPORT)
+
+sender:
+	PYTHONPATH=. python test/sender.py --port=$(SERIALPORT)
+
 app:
 	PYTHONPATH=. python net/layers/application.py
 
