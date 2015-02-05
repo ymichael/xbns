@@ -1,4 +1,4 @@
-.PHONY: start port rsync rmpyc rsync-makefile sim test app pong ping
+.PHONY: start port rsync rmpyc rsync-makefile sim test app pong ping deluge rateless
 
 rmpyc:
 	find . | grep -v .venv | grep .pyc | xargs rm
@@ -21,6 +21,12 @@ pong:
 
 ping:
 	PYTHONPATH=. python app/ping.py
+
+deluge:
+	PYTHONPATH=. python app/run_deluge.py -f data/32B.in
+
+rateless:
+	PYTHONPATH=. python app/run_rateless_deluge.py -f data/100KB.in
 
 sim:
 	PYTHONPATH=. python sim/main.py $(ARGS)
