@@ -252,6 +252,8 @@ class Deluge(net.layers.application.Application):
             self._send_adv_timer.cancel()
         if self._send_req_timer is not None:
             self._send_req_timer.cancel()
+        if self._send_data_timer is not None:
+            self._send_data_timer.cancel()
         if self._next_round_timer is not None:
             self._next_round_timer.cancel()
 
@@ -355,6 +357,9 @@ class Deluge(net.layers.application.Application):
 
     def _send_data(self):
         while len(self._pending_datas):
+            if self.req_and_data_overheard:
+                self.log("Suppressed DATA")
+                return
             page, packet = self._pending_datas.pop()
             data = self.PDU_CLS.create_data_packet(
                 self.version, page, packet,
@@ -431,7 +436,7 @@ class Deluge(net.layers.application.Application):
             if data_unit.page_number not in self.buffering_pages:
                 self.buffering_pages[data_unit.page_number] = {}
             if data_unit.packet_number not in self.buffering_pages[data_unit.page_number]:
-                self.buffering_pages[data_unit.page_number][data_unit.packet_number] = data_unit.message
+                self.buffering_pages[data_unit.page_number][data_unit.packet_number] = data_unit.data
 
                 # Received a DATA packet for the page that triggered entry to
                 # the RX state.
