@@ -70,9 +70,9 @@ class Transport(base.BaseLayer):
         return self._socket_reader
 
     def _handle_incoming(self, data):
-        transport_pdu = TransportPDU.from_string(data)
-        app_socket_address = ("", transport_pdu.dest_port)
         try:
+            transport_pdu = TransportPDU.from_string(data)
+            app_socket_address = ("", transport_pdu.dest_port)
             with sock.writer.Writer(app_socket_address) as w:
                 w.write(data)
         except socket.error as msg:
