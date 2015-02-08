@@ -4,7 +4,7 @@ _(bone is aliased to 192.168.7.2)_
 0. ssh into device
 
 ```
-ssh root@192.168.7.2
+ssh root@bone
 ```
 
 1. create user `michael`
@@ -21,6 +21,9 @@ sudo adduser michael
 ```
 sudo visudo
 
+# If you prefer vi
+sudo EDITOR=vi visudo
+
 # Add new line:
 # michael ALL=(ALL:ALL) ALL
 ```
@@ -31,7 +34,7 @@ https://www.digitalocean.com/community/tutorials/how-to-set-up-ssh-keys--2
 
 ```
 # my public key is called bone.pub
-cat ~/.ssh/bone.pub | ssh michael@192.168.7.2 "mkdir -p ~/.ssh && cat >>  ~/.ssh/authorized_keys"
+cat ~/.ssh/bone.pub | ssh michael@bone "mkdir -p ~/.ssh && cat >>  ~/.ssh/authorized_keys"
 ```
 
 4. copy code over.
@@ -42,7 +45,7 @@ make rsync
 5. assign the device a unique ID (mark on the device exterior as well).
 
 ```
-echo 5 > ~/xbns/addr.txt
+ssh michael@bone "echo 5 > ~/xbns/addr.txt"
 ```
 
 6. add services
@@ -61,7 +64,9 @@ sudo systemctl start xbns.service
 sudo systemctl status xbns.service
 ```
 
-Add xbns.service, pong.service, apps.service.
+- Add xbns.service, pong.service, apps.service.
+- NOTE: xbns.service requires the xbee to be plugged in when it is run.
+- use `ps aux | grep python` to check after starting all the services.
 
 7. remove services (for debugging and uninstalling.)
 
