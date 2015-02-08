@@ -81,6 +81,6 @@ if __name__ == '__main__':
                         help='The propogation delay in the shared medium, defaults to 0.')
     parser.add_argument('--file', '-f', type=argparse.FileType(),
                         default='./data/20KB.in',
-                        help='File to propogate through the network')
+                        help='File to propagate through the network')
     args = parser.parse_args()
     main(args)
