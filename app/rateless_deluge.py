@@ -54,8 +54,8 @@ class RatelessDeluge(deluge.Deluge):
 
     PDU_CLS = RatelessDelugePDU
 
-    def __init__(self, addr):
-        super(RatelessDeluge, self).__init__(addr)
+    def _reset_round_state(self):
+        super(RatelessDeluge, self)._reset_round_state()
 
         # Mapping of page => number of DATA packets required.
         self._pending_datas = {}

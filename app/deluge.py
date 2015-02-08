@@ -138,9 +138,9 @@ class Deluge(net.layers.application.Application):
     PDU_CLS = DelugePDU
     STATE_CLS = DelugeState
 
-    def new_version(self, version, data):
+    def new_version(self, version, data, force=False, start=True):
         # Only update if the version is later than the current version.
-        if version <= self.version:
+        if version <= self.version and not force:
             return
 
         self.version = version
@@ -150,7 +150,8 @@ class Deluge(net.layers.application.Application):
         self.total_pages = len(self.complete_pages)
         self.set_data_hash(data)
         self._set_inconsistent()
-        self._start_next_round(delay=0)
+        if start:
+            self._start_next_round(delay=0)
 
     def _split_data_into_pages_and_packets(self, data):
         if (len(data) % self.PAGE_SIZE) != 0:
@@ -209,6 +210,17 @@ class Deluge(net.layers.application.Application):
         self.complete_pages = []
         self.buffering_pages = {}
 
+        # Timers and threads
+        self._send_adv_timer = None
+        self._send_req_timer = None
+        self._send_data_timer = None
+        self._next_round_timer = None
+
+        self._stopped = True
+
+        self._reset_round_state()
+
+    def _reset_round_state(self):
         # The state of the protocols. Starts in the MAINTAIN state.
         self.state = self.STATE_CLS.MAINTAIN
 
@@ -237,17 +249,15 @@ class Deluge(net.layers.application.Application):
         # from the MAINTAIN to the RX state.
         self._page_to_req = None
 
-        # Timers and threads
-        self._send_adv_timer = None
-        self._send_req_timer = None
-        self._send_data_timer = None
-        self._next_round_timer = None
-
     def start(self, *args, **kwargs):
         super(Deluge, self).start(*args, **kwargs)
         self._start_next_round()
 
-    def _start_next_round(self, delay=0):
+    def stop(self):
+        self._stopped = True
+        self._cancel_all_timers()
+
+    def _cancel_all_timers(self):
         if self._send_adv_timer is not None:
             self._send_adv_timer.cancel()
         if self._send_req_timer is not None:
@@ -257,6 +267,9 @@ class Deluge(net.layers.application.Application):
         if self._next_round_timer is not None:
             self._next_round_timer.cancel()
 
+    def _start_next_round(self, delay=0):
+        self._stopped = False
+        self._cancel_all_timers()
         self._next_round_timer = threading.Timer(delay, self._round)
         self._next_round_timer.start()
 
@@ -371,6 +384,11 @@ class Deluge(net.layers.application.Application):
         transport_pdu = net.layers.transport.TransportPDU.from_string(data)
         data_unit = self.PDU_CLS.from_string(transport_pdu.message)
         self._log_receive_pdu(data_unit, transport_pdu.source_addr)
+        self._handle_incoming_inner(data_unit)
+
+    def _handle_incoming_inner(self, data_unit):
+        if self._stopped:
+            return
 
         if data_unit.is_adv():
             self._process_adv(data_unit)
