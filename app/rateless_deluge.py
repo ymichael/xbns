@@ -61,10 +61,9 @@ class RatelessDeluge(deluge.Deluge):
         self._pending_datas = {}
 
     def _split_data_into_pages_and_packets(self, data):
-        if (len(data) % self.PAGE_SIZE) != 0:
-            pad_to_size = len(data) + self.PAGE_SIZE
-            pad_to_size -= pad_to_size % self.PAGE_SIZE
-            data = coding.message.Message(data).to_size(pad_to_size)
+        pad_to_size = len(data) + self.PAGE_SIZE
+        pad_to_size -= pad_to_size % self.PAGE_SIZE
+        data = coding.message.Message(data).to_size(pad_to_size)
 
         current_index = 0
         page_number = 0

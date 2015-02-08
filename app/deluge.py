@@ -147,18 +147,17 @@ class Deluge(net.layers.application.Application):
         self.complete_pages = []
         self.buffering_pages = {}
         self._split_data_into_pages_and_packets(data)
+        assert self.get_data() == data
         self.total_pages = len(self.complete_pages)
-        self.set_data_hash(data)
+        self.set_data_hash(self.get_data())
         self._set_inconsistent()
         if start:
             self._start_next_round(delay=0)
 
     def _split_data_into_pages_and_packets(self, data):
-        if (len(data) % self.PAGE_SIZE) != 0:
-            pad_to_size = len(data) + self.PAGE_SIZE
-            pad_to_size -= pad_to_size % self.PAGE_SIZE
-            data = coding.message.Message(data).to_size(pad_to_size)
-
+        pad_to_size = len(data) + self.PAGE_SIZE
+        pad_to_size -= pad_to_size % self.PAGE_SIZE
+        data = coding.message.Message(data).to_size(pad_to_size)
         current_index = 0
         page_number = 0
         while current_index < len(data):
