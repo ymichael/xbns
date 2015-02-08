@@ -12,8 +12,5 @@
 
 cd /home/michael/xbns
 
-# Pong app
-PYTHONPATH=. python ./app/pong.py &
-
 # Deluge app
-PYTHONPATH=. python ./app/run_deluge.py &
+PYTHONPATH=. python ./app/manager.py -f data/20KB.in &
