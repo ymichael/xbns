@@ -77,8 +77,13 @@ class Transport(base.BaseLayer):
                 w.write(data)
         except socket.error as msg:
             self.logger.error(msg)
+        except Exception as e:
+            self.logger.error(e)
 
     def _handle_outgoing(self, data):
-        transport_pdu = TransportPDU.from_string(data)
-        # DataLink layer expects tuple of (data, dest_addr).
-        self._outgoing_queue.put((data, transport_pdu.dest_addr))
+        try:
+            transport_pdu = TransportPDU.from_string(data)
+            # DataLink layer expects tuple of (data, dest_addr).
+            self._outgoing_queue.put((data, transport_pdu.dest_addr))
+        except Exception as e:
+            self.logger.error(e)
