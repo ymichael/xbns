@@ -215,7 +215,7 @@ class Deluge(net.layers.application.Application):
         self._send_data_timer = None
         self._next_round_timer = None
 
-        self._stopped = True
+        self._stopped = False
 
         self._reset_round_state()
 
@@ -247,10 +247,6 @@ class Deluge(net.layers.application.Application):
         # The page to be requested. Also the page that cause the transition
         # from the MAINTAIN to the RX state.
         self._page_to_req = None
-
-    def start(self, *args, **kwargs):
-        super(Deluge, self).start(*args, **kwargs)
-        self._start_next_round()
 
     def stop(self):
         self._stopped = True
