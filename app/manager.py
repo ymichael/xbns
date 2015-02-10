@@ -181,7 +181,7 @@ class Manager(net.layers.application.Application):
         protocol.PAGE_SIZE = self.PAGE_SIZE
         protocol.PACKET_SIZE = self.PACKET_SIZE
         protocol.PACKETS_PER_PAGE = self.PACKETS_PER_PAGE
-        protocol.new_version(0, data, force=True, start=False)
+        protocol.new_version(1, data, force=True, start=False)
         protocol.T_MIN = self.T_MIN
         protocol.T_MAX = self.T_MAX
         protocol.K = self.K
