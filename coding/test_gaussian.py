@@ -54,4 +54,3 @@ def test_gaussian_elimination_rows_required():
     eq_(0, g.get_rows_required())
     eq_(g.MATRIX_CLS([[3], [2], [4]]), g.solve())
     ok_(g.is_solved())
-

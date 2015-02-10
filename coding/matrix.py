@@ -39,9 +39,9 @@ class Matrix(object):
         new_rows = []
         for i in xrange(self.num_rows):
             new_row = []
-            row = list(self.iter_row(i))
             for j in xrange(other.num_cols):
-                new_row.append(sum(x * y for x, y in zip(row, other.iter_col(j))))
+                new_row.append(
+                    self.vector_dot_product(self.iter_row(i), other.iter_col(j)))
             new_rows.append(new_row)
         self.rows = new_rows
         return self
@@ -110,3 +110,7 @@ class Matrix(object):
     @staticmethod
     def mul_values(values, x):
         return [v * x for v in values]
+
+    @staticmethod
+    def vector_dot_product(a, b):
+        return sum(x * y for x, y in zip(a, b))

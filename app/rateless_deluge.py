@@ -1,6 +1,5 @@
 import coding.message
-import coding.matrix
-import coding.gaussian
+import coding.ff
 import deluge
 import itertools
 import pickle
@@ -69,19 +68,19 @@ class RatelessDeluge(deluge.Deluge):
         page_number = 0
         while current_index < len(data):
             page_end = current_index + self.PAGE_SIZE
-            packets = []
+            matrix = coding.ff.Matrix()
             while current_index < page_end and current_index < len(data):
                 packet_end = current_index + self.PACKET_SIZE
                 packet = data[current_index:packet_end]
-                packets.append(coding.message.Message.to_int_array(packet))
+                matrix.add_row(coding.message.Message.to_int_array(packet))
                 current_index += self.PACKET_SIZE
-            self.complete_pages.append(packets)
+            self.complete_pages.append(matrix)
             page_number += 1
 
     def get_data(self):
         packets = []
         for page in self.complete_pages:
-            int_array = list(itertools.chain(*page))
+            int_array = list(itertools.chain(*page.rows))
             packets.extend(int_array)
         message = coding.message.Message.from_string(
             coding.message.Message.int_array_to_string(packets))
@@ -96,16 +95,17 @@ class RatelessDeluge(deluge.Deluge):
             self.version, self._page_to_req, packets_required)
 
     def _get_random_coeffs(self):
-        return [random.randint(0, 255) for i in xrange(ROWS_REQUIRED)]
+        m = coding.ff.Matrix()
+        m.add_row([random.randint(0, 255) for i in xrange(ROWS_REQUIRED)])
+        return m
 
     def _send_data(self):
         for page, number_of_packets in self._pending_datas.items():
             for i in xrange(number_of_packets):
                 coeffs = self._get_random_coeffs()
-                coded_data = coding.matrix.dot([coeffs], self.complete_pages[page])[0]
-                coded_data = [i % 256 for i in coded_data]
+                coded_data = coeffs.dot(self.complete_pages[page])
                 data = self.PDU_CLS.create_data_packet(
-                    self.version, page, coeffs, coded_data)
+                    self.version, page, list(coeffs.iter_row(0)), list(coded_data.iter_row(0)))
                 self._send_pdu(data)
         self._pending_datas = {}
         self._change_state(self.STATE_CLS.MAINTAIN)
@@ -138,7 +138,7 @@ class RatelessDeluge(deluge.Deluge):
         # Store data if applicable.
         if data_unit.page_number >= len(self.complete_pages):
             if data_unit.page_number not in self.buffering_pages:
-                self.buffering_pages[data_unit.page_number] = coding.gaussian.GaussianElimination()
+                self.buffering_pages[data_unit.page_number] = coding.ff.Gaussian()
             self.buffering_pages[data_unit.page_number].add_row(data_unit.coeffs, data_unit.data)
             # Received a DATA packet for the page that triggered entry to
             # the RX state.

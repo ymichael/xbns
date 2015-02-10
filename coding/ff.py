@@ -1,3 +1,7 @@
+import gaussian
+import matrix
+
+
 # Rijndael'a Galois field
 # 2 ^ 8
 # Source: http://www.samiam.org/galois.html
@@ -79,8 +83,6 @@ def sub(a, b):
 
 
 def mul(a, b):
-    a = a % 256
-    b = b % 256
     if a is 0 or b is 0:
         return 0
     s = (ltable[int(a)] + ltable[int(b)]) % 255
@@ -88,7 +90,6 @@ def mul(a, b):
 
 
 def inv(a):
-    a = a % 256
     if a is 0:
         return 0
     return atable[(255 - ltable[int(a)])]
@@ -96,3 +97,34 @@ def inv(a):
 
 def div(a, b):
     return mul(a, inv(b))
+
+
+class Matrix(matrix.Matrix):
+    def div_row(self, row, x):
+        assert row < self.num_rows
+        self.rows[row][:] = [div(elem, x) for elem in self.rows[row]]
+
+    def add_to_row(self, row, values):
+        assert row < self.num_rows
+        assert len(values) == self.num_cols
+        self.rows[row][:] = [add(a, b) for a, b in zip(self.rows[row], values)]
+
+    def sub_from_row(self, row, values):
+        assert row < self.num_rows
+        assert len(values) == self.num_cols
+        self.rows[row][:] = [sub(a, b) for a, b in zip(self.rows[row], values)]
+
+    @staticmethod
+    def mul_values(values, x):
+        return [mul(v, x) for v in values]
+
+    @staticmethod
+    def vector_dot_product(a, b):
+        val = 0
+        for x in (mul(x, y) for x, y in zip(a, b)):
+            val = add(val, x)
+        return val
+
+
+class Gaussian(gaussian.GaussianElimination):
+    MATRIX_CLS = Matrix

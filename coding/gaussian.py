@@ -17,8 +17,8 @@ class GaussianElimination(object):
     def add_row(self, a, b):
         if self.is_solved():
             return
-        self.a.add_row(a)
-        self.b.add_row(b)
+        self.a.add_row(list(a))
+        self.b.add_row(list(b))
         self._reduce()
         self._solve()
 
