@@ -2,11 +2,9 @@ import gaussian
 import message
 import matrix
 
+
 def main():
     h = 10
-    data = "A wireless sensor network (WSN) of spatially distributed autonomous sensors to monitor physical or environmental conditions, such as temperature, sound, pressure, etc. and to cooperatively pass their data through the network to a main location. The more modern networks are bidirectional, also enabling control of sensor activity. The development of wireless sensor networks was motivated by military applications such as battlefield surveillance; today such networks are used in many industrial and consumer applications, such as industrial process monitoring and control, machine health monitoring, and so on."
-    m = message.Message(data)
-    chunks = m.to_matrix(rows=h)
     coeffs = [
         [10, 16, 5, 3, 12, 4, 19, 4, 8, 14],
         [1, 15, 15, 17, 0, 20, 4, 11, 7, 9],
@@ -19,10 +17,18 @@ def main():
         [2, 20, 19, 4, 7, 13, 10, 7, 17, 14],
         [9, 18, 3, 15, 13, 0, 13, 5, 17, 11],
     ]
+    data = "A wireless sensor network (WSN) of spatially distributed autonomous sensors to monitor physical or environmental conditions, such as temperature, sound, pressure, etc. and to cooperatively pass their data through the network to a main location. The more modern networks are bidirectional, also enabling control of sensor activity. The development of wireless sensor networks was motivated by military applications such as battlefield surveillance; today such networks are used in many industrial and consumer applications, such as industrial process monitoring and control, machine health monitoring, and so on."
+    m = message.Message(data)
+    rows = m.to_matrix(rows=h)
+    data_mat = matrix.Matrix(rows)
+    coeffs_mat = matrix.Matrix(coeffs)
+    coded_mat = coeffs_mat.dot(data_mat)
+
     g = gaussian.GaussianElimination()
-    for coeff in coeffs:
-        y = matrix.dot([coeff], chunks)
-        g.add_row(coeff, y[0])
+    for row_i in xrange(coeffs_mat.num_rows):
+        g.add_row(
+            list(coeffs_mat.iter_row(row_i)),
+            list(coded_mat.iter_row(row_i)))
     x = message.Message.from_matrix(g.solve())
     print x.string
 

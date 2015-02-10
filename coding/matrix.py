@@ -24,8 +24,10 @@ class Matrix(object):
 
     def dot(self, other):
         assert isinstance(other, Matrix)
-        assert self.num_cols == other.num_rows
-        return self._dot(other)
+        assert self.num_cols == other.num_rows, \
+            "Trying to multiply a %sx%s matrix with %sx%s matrix" % \
+            (self.num_rows, self.num_cols, other.num_rows, other.num_cols)
+        return self.copy()._dot(other)
 
     def _dot(self, other):
         new_rows = []
@@ -61,3 +63,7 @@ class Matrix(object):
             if self.rows[i] != other.rows[i]:
                 return False
         return True
+
+    def copy(self):
+        return self.__class__([row[:] for row in self.rows])
+

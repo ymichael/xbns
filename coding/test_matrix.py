@@ -92,8 +92,8 @@ def test_dot_product_identity():
 
     m1 = Matrix(i3)
     m2 = Matrix(b)
-    m1.dot(m2)
-    eq_(m1, m2)
+    m3 = m1.dot(m2)
+    eq_(m2, m3)
 
 
 def test_dot_product_unequal():
@@ -114,5 +114,5 @@ def test_dot_product_unequal():
     mb = Matrix(b)
     m_expected = Matrix(expected)
 
-    ma.dot(mb)
-    eq_(m_expected, ma)
+    mc = ma.dot(mb)
+    eq_(m_expected, mc)
