@@ -1,6 +1,7 @@
 class InvalidMatrixException(Exception):
     pass
 
+
 class InvalidRowSizeException(Exception):
     pass
 
@@ -21,6 +22,11 @@ class Matrix(object):
     def num_cols(self):
         if self.num_rows:
             return len(self.rows[0])
+
+    def get(self, row, col):
+        assert row < self.num_rows
+        assert col < self.num_cols
+        return self.rows[row][col]
 
     def dot(self, other):
         assert isinstance(other, Matrix)
@@ -54,6 +60,40 @@ class Matrix(object):
                 "Expected: %s, given: %s" % (len(self.rows[0]), len(row)))
         self.rows.append(row)
 
+    def remove_row(self, row):
+        assert row < self.num_rows
+        del self.rows[row]
+
+    def swap_rows(self, a, b):
+        assert a < self.num_rows and b < self.num_rows
+        self.rows[a], self.rows[b] = self.rows[b], self.rows[a]
+
+    def mul(self, x):
+        for row in xrange(self.num_rows):
+            self.mul_row(row, x)
+
+    def mul_row(self, row, x):
+        assert row < self.num_rows
+        self.rows[row][:] = self.mul_values(self.rows[row], x)
+
+    def div(self, x):
+        for row in xrange(self.num_rows):
+            self.div_row(row, x)
+
+    def div_row(self, row, x):
+        assert row < self.num_rows
+        self.rows[row][:] = [elem / float(x) for elem in self.rows[row]]
+
+    def add_to_row(self, row, values):
+        assert row < self.num_rows
+        assert len(values) == self.num_cols
+        self.rows[row][:] = [a + b for a, b in zip(self.rows[row], values)]
+
+    def sub_from_row(self, row, values):
+        assert row < self.num_rows
+        assert len(values) == self.num_cols
+        self.rows[row][:] = [a - b for a, b in zip(self.rows[row], values)]
+
     def __eq__(self, other):
         if not (isinstance(other, Matrix) and \
                 self.num_rows == other.num_rows and \
@@ -67,3 +107,6 @@ class Matrix(object):
     def copy(self):
         return self.__class__([row[:] for row in self.rows])
 
+    @staticmethod
+    def mul_values(values, x):
+        return [v * x for v in values]

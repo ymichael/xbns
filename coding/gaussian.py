@@ -1,95 +1,106 @@
+import matrix
+
+
 class GaussianElimination(object):
     """Performs Gaussian elimination.
 
     Allows rows to be added in parts.
     """
+
+    MATRIX_CLS = matrix.Matrix
+
     def __init__(self):
-        self.a = []
-        self.b = []
-        self.x = None
+        self.a = self.MATRIX_CLS()
+        self.b = self.MATRIX_CLS()
+        self.solution = None
 
     def add_row(self, a, b):
         if self.is_solved():
             return
-        self.a.append(a)
-        self.b.append(b)
+        self.a.add_row(a)
+        self.b.add_row(b)
         self._reduce()
         self._solve()
 
     def is_solved(self):
-        return self.x is not None
-
-    def get_rows_required(self):
-        assert len(self.a) != 0
-        return len(self.a[0]) - len(self.a)
+        return self.solution is not None
 
     def solve(self):
         assert self.is_solved()
-        return self.x
+        return self.solution
 
-    def _swap(self, idx1, idx2):
-        self.a[idx1], self.a[idx2] = self.a[idx2], self.a[idx1]
-        self.b[idx1], self.b[idx2] = self.b[idx2], self.b[idx1]
+    def get_rows_required(self):
+        if self.a.num_rows == 0:
+            return 0
+        return self.a.num_cols - self.a.num_rows
 
-    def _mul(self, idx, mul):
-        self.a[idx] = [mul*elem for elem in self.a[idx]]
-        self.b[idx] = [mul*elem for elem in self.b[idx]]
+    # 3 Types of operations
+    # - Type 1: Swap the positions of two rows.
+    # - Type 2: Divide a row by a nonzero scalar.
+    # - Type 3: Subtract mul * row j from row i
+    def _swap_rows(self, i, j):
+        self.a.swap_rows(i, j)
+        self.b.swap_rows(i, j)
 
-    def _add(self, row_from, mul, row_to):
-        r1 = self.a[row_to]
-        r2_mul = [mul*elem for elem in self.a[row_from]]
-        self.a[row_to] = [r1[i] + r2_mul[i] for i in xrange(len(r1))]
+    def _div_row(self, i, val):
+        if val == 1:
+            return
+        self.a.div_row(i, val)
+        self.b.div_row(i, val)
 
-        r1 = self.b[row_to]
-        r2_mul = [mul*elem for elem in self.b[row_from]]
-        self.b[row_to] = [r1[i] + r2_mul[i] for i in xrange(len(r1))]
+    def _sub_from_row(self, i, mul, j):
+        if mul == 0:
+            return
+        self.a.sub_from_row(
+            i, self.MATRIX_CLS.mul_values(self.a.iter_row(j), mul))
+        self.b.sub_from_row(
+            i, self.MATRIX_CLS.mul_values(self.b.iter_row(j), mul))
 
-    def _del(self, idx):
-        del self.a[idx]
-        del self.b[idx]
+    def _remove_row(self, i):
+        self.a.remove_row(i)
+        self.b.remove_row(i)
+
+    def _remove_non_innovative_rows(self):
+        # Delete non-innovative rows, from the bottom.
+        for row in xrange(self.a.num_rows - 1, -1, -1):
+            if all(x == 0 for x in self.a.iter_row(row)):
+                self._remove_row(row)
+
+    def _first_row_with_val_in_col(self, starting_row, col):
+        for row in xrange(starting_row, self.a.num_rows):
+            if self.a.get(row, col) != 0:
+                return row
+        return None
 
     def _solve(self):
-        if len(self.a) != len(self.a[0]):
+        if self.get_rows_required() != 0:
             return
-
         # Back substitution (should be in reduced row-echelon form now)
-        rows = xrange(0, len(self.a))
-        for idx in reversed(rows):
-            for i in xrange(0, idx):
-                if self.a[i][idx] == 0:
-                    continue
-                self._add(idx, -1.0 * self.a[i][idx], i)
-
+        for row in xrange(self.a.num_rows - 1, -1, -1):
+            # Reduce all other rows (above the current row) to 0 where col = row.
+            for other_row in xrange(0, row):
+                multiple = self.a.get(other_row, row)
+                self._sub_from_row(other_row, multiple, row)
         # Solved.
-        self.x = self.b 
+        self.solution = self.b.copy()
 
     def _reduce(self):
-        if len(self.a) < 1:
-            return
-
-        # For each column, reduce.
-        search_from_row = 0
-        for j in xrange(len(self.a[0])):
-            # Row with value in this col.
-            rows = xrange(search_from_row, len(self.a))
-            row = next((i for i in rows if self.a[i][j] != 0), None)
-            if row is None:
+        current_row = 0
+        # For each column, reduce every row to 0 but one and move it to the top.
+        for col in xrange(self.a.num_cols):
+            # Find a row with a non-zero value in this col
+            row_with_value = self._first_row_with_val_in_col(current_row, col)
+            if row_with_value is None:
                 continue
-
-            # Reduce to coefficient of 1 here.
-            self._mul(row, 1.0 / self.a[row][j])
-
-            # Subtract other rows.
-            other_rows = (x for x in rows if x != row and self.a[x][j] != 0)
-            for i in other_rows:
-                self._add(row, -1.0 * self.a[i][j] / self.a[row][j], i)
-
+            # Reduce row_with_value to coefficient of 1 here.
+            self._div_row(row_with_value, self.a.get(row_with_value, col))
+            # For other rows, subtract a multiple of row_with_value to have
+            # value at col = 0.
+            for other_row in xrange(row_with_value + 1, self.a.num_rows):
+                multiple = self.a.get(other_row, col)
+                self._sub_from_row(other_row, multiple, current_row)
             # Move current row to the top and continue reducing.
-            self._swap(row, search_from_row)
-            search_from_row += 1
+            self._swap_rows(row_with_value, current_row)
+            current_row += 1
 
-        # Delete non-innovative rows.
-        rows = xrange(0, len(self.a))
-        for idx in reversed(rows):
-            if all(x == 0 for x in self.a[idx]):
-                self._del(idx)
+        self._remove_non_innovative_rows()

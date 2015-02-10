@@ -116,3 +116,65 @@ def test_dot_product_unequal():
 
     mc = ma.dot(mb)
     eq_(m_expected, mc)
+
+
+def test_swap_rows():
+    b = [
+        [1, 2, 3],
+        [4, 5, 6],
+        [7, 8, 9],
+    ]
+    expected = [
+        [7, 8, 9],
+        [4, 5, 6],
+        [1, 2, 3],
+    ]
+    mb = Matrix(b)
+    mb.swap_rows(0, 2)
+    eq_(Matrix(expected), mb)
+
+
+def test_mul():
+    b = [
+        [1, 2, 3],
+        [4, 5, 6],
+        [7, 8, 9],
+    ]
+    expected = [
+        [3, 6, 9],
+        [12, 15, 18],
+        [21, 24, 27],
+    ]
+    mb = Matrix(b)
+    mb.mul(3)
+    eq_(Matrix(expected), mb)
+
+
+def test_mul_row():
+    b = [
+        [1, 2, 3],
+        [4, 5, 6],
+        [7, 8, 9],
+    ]
+    expected = [
+        [3, 6, 9],
+        [4, 5, 6],
+        [7, 8, 9],
+    ]
+    mb = Matrix(b)
+    mb.mul_row(0, 3)
+    eq_(Matrix(expected), mb)
+
+def test_remove_row():
+    b = [
+        [1, 2, 3],
+        [4, 5, 6],
+        [7, 8, 9],
+    ]
+    expected = [
+        [1, 2, 3],
+        [7, 8, 9],
+    ]
+    mb = Matrix(b)
+    mb.remove_row(1)
+    eq_(Matrix(expected), mb)

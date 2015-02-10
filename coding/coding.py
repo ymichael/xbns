@@ -29,7 +29,8 @@ def main():
         g.add_row(
             list(coeffs_mat.iter_row(row_i)),
             list(coded_mat.iter_row(row_i)))
-    x = message.Message.from_matrix(g.solve())
+    solution = g.solve()
+    x = message.Message.from_matrix(solution.rows)
     print x.string
 
 if __name__ == '__main__':

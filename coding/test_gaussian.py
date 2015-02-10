@@ -11,7 +11,7 @@ def test_gaussian_elimination_solve_1():
     g.add_row([0, 1], [1])
     eq_(0, g.get_rows_required())
     ok_(g.is_solved())
-    eq_([[2], [1]], g.solve())
+    eq_(g.MATRIX_CLS([[2], [1]]), g.solve())
 
 
 def test_gaussian_elimination_solve_2():
@@ -22,7 +22,7 @@ def test_gaussian_elimination_solve_2():
     g.add_row([2, 1, -3], [-4])
     g.add_row([1, 1, 3], [17])
     g.add_row([1, -2, 1], [3])
-    eq_([[3], [2], [4]], g.solve())
+    eq_(g.MATRIX_CLS([[3], [2], [4]]), g.solve())
     eq_(0, g.get_rows_required())
     ok_(g.is_solved())
 
@@ -52,6 +52,6 @@ def test_gaussian_elimination_rows_required():
     eq_(1, g.get_rows_required())
     g.add_row([1, -2, 1], [3])
     eq_(0, g.get_rows_required())
-    eq_([[3], [2], [4]], g.solve())
+    eq_(g.MATRIX_CLS([[3], [2], [4]]), g.solve())
     ok_(g.is_solved())
 
