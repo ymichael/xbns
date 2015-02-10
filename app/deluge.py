@@ -226,7 +226,7 @@ class Deluge(net.layers.application.Application):
         # The length of the window. This is dynamically adjusted to be between
         # T_MIN and T_MAX to allow for fast propagation of new versions and low
         # maintainance overhead.
-        self.t = self.T_MIN
+        self.t = self.T_MAX
 
         # Number of ADV overheard with similar summaries.
         self.adv_overheard = 0
