@@ -1,30 +1,63 @@
-def assert_rows(mat, rows):
-    assert num_rows(mat) == rows
+class InvalidMatrixException(Exception):
+    pass
+
+class InvalidRowSizeException(Exception):
+    pass
 
 
-def assert_cols(mat, cols):
-    for row in mat:
-        assert len(row) == cols
+class Matrix(object):
+    def __init__(self, rows=None):
+        rows = rows or []
+        row_sizes = {len(row) for row in rows}
+        if len(row_sizes) > 1:
+            raise InvalidMatrixException("Multiple row sizes found: %s" % row_sizes)
+        self.rows = rows
 
-def num_cols(mat):
-    return len(mat[0])
+    @property
+    def num_rows(self):
+        return len(self.rows)
 
+    @property
+    def num_cols(self):
+        if self.num_rows:
+            return len(self.rows[0])
 
-def num_rows(mat):
-    return len(mat)
+    def dot(self, other):
+        assert isinstance(other, Matrix)
+        assert self.num_cols == other.num_rows
+        return self._dot(other)
 
+    def _dot(self, other):
+        new_rows = []
+        for i in xrange(self.num_rows):
+            new_row = []
+            row = list(self.iter_row(i))
+            for j in xrange(other.num_cols):
+                new_row.append(sum(x * y for x, y in zip(row, other.iter_col(j))))
+            new_rows.append(new_row)
+        self.rows = new_rows
+        return self
 
-def dot(a, b):
-    """Multiply two matrices, a * b.
+    def iter_col(self, col):
+        assert col < self.num_cols
+        return (self.rows[row][col] for row in xrange(self.num_rows))
 
-    Matrices are represented as list of lists.
-    """
-    assert_cols(a, num_rows(b))
-    result = []
-    for i, row_a in enumerate(a):
-        result_row = []
-        for j in xrange(num_cols(b)):
-            result_row.append(
-                sum(a[i][k] * b[k][j] for k in xrange(num_rows(b))))
-        result.append(result_row)
-    return result
+    def iter_row(self, row):
+        assert row < self.num_rows
+        return (self.rows[row][col] for col in xrange(self.num_cols))
+
+    def add_row(self, row):
+        if len(self.rows) != 0 and len(self.rows[0]) != len(row):
+            raise InvalidRowSizeException(
+                "Expected: %s, given: %s" % (len(self.rows[0]), len(row)))
+        self.rows.append(row)
+
+    def __eq__(self, other):
+        if not (isinstance(other, Matrix) and \
+                self.num_rows == other.num_rows and \
+                self.num_cols == other.num_cols):
+            return False
+        for i in xrange(self.num_rows):
+            if self.rows[i] != other.rows[i]:
+                return False
+        return True
