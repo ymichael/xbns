@@ -212,7 +212,6 @@ class Deluge(net.layers.application.Application):
         # Timers and threads
         self._send_adv_timer = None
         self._send_req_timer = None
-        self._send_data_timer = None
         self._next_round_timer = None
 
         self._stopped = False
@@ -257,8 +256,6 @@ class Deluge(net.layers.application.Application):
             self._send_adv_timer.cancel()
         if self._send_req_timer is not None:
             self._send_req_timer.cancel()
-        if self._send_data_timer is not None:
-            self._send_data_timer.cancel()
         if self._next_round_timer is not None:
             self._next_round_timer.cancel()
 
@@ -301,8 +298,8 @@ class Deluge(net.layers.application.Application):
         self._send_req_delayed()
 
     def _round_tx(self):
-        self._start_next_round(delay=self.t)
-        self._send_data_delayed()
+        self._send_data()
+        self._start_next_round(delay=0)
 
     def _send_adv_delayed(self):
         # Wait for a random amount of time (between self.t / 2 and self.t)
@@ -356,18 +353,8 @@ class Deluge(net.layers.application.Application):
         # Reset counter.
         self._rx_data_rate = 0
 
-    def _send_data_delayed(self):
-        rand_t = self._get_random_t_tx()
-        if self._send_data_timer is not None:
-            self._send_data_timer.cancel()
-        self._send_data_timer = threading.Timer(rand_t, self._send_data)
-        self._send_data_timer.start()
-
     def _send_data(self):
         while len(self._pending_datas):
-            if self.req_and_data_overheard:
-                self.log("Suppressed DATA")
-                return
             page, packet = self._pending_datas.pop()
             data = self.PDU_CLS.create_data_packet(
                 self.version, page, packet,
@@ -501,10 +488,7 @@ class Deluge(net.layers.application.Application):
         self.log("Changing state from %5s to %5s" % (self.state, new_state))
 
     def _get_random_t_adv(self):
-        return random.uniform(2.0 / 3 * self.t, self.t)
+        return random.uniform(self.t / 2.0, self.t)
 
     def _get_random_t_req(self):
-        return random.uniform(1.0 / 3 * self.t, 2.0 / 3 * self.t)
-
-    def _get_random_t_tx(self):
-        return random.uniform(0, self.t / 3.0)
+        return random.uniform(0, self.t / 2.0)
