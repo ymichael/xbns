@@ -168,14 +168,14 @@ class Manager(net.layers.application.Application):
         self.T_MAX = data_unit.t_max
         self.DELAY = data_unit.delay
 
+        # Update the two protocols.
+        self._update_protocol(self.deluge)
+        self._update_protocol(self.rateless)
+
         # TMP.
         rateless_deluge.ROWS_REQUIRED = self.PACKETS_PER_PAGE
         self.rateless.PDU_CLS.DATA_FORMAT = "II" + ("B" * self.PACKETS_PER_PAGE) + \
             ("B" * self.PACKET_SIZE)
-        
-        # Update the two protocols.
-        self._update_protocol(self.deluge)
-        self._update_protocol(self.rateless)
 
     def _update_protocol(self, protocol):
         protocol.stop()
