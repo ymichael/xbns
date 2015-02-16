@@ -22,6 +22,9 @@ class DelugePDU(object):
     DATA_HEADER = "III"
     DATA_HEADER_SIZE = struct.calcsize(DATA_HEADER)
 
+    REQ_HEADER = "II"
+    REQ_HEADER_SIZE = struct.calcsize(REQ_HEADER)
+
     ADV = 0
     REQ = 1
     DATA = 2
@@ -42,7 +45,10 @@ class DelugePDU(object):
             pickle.loads(self.message)
 
     def _init_req(self):
-        self.version, self.page_number, self.packets = pickle.loads(self.message)
+        self.version, self.page_number = \
+            struct.unpack(self.REQ_HEADER, self.message[:self.REQ_HEADER_SIZE])
+        packets = self.message[self.REQ_HEADER_SIZE:]
+        self.packets = struct.unpack('B' * len(packets), packets)
 
     def _init_data(self):
         self.version, self.page_number, self.packet_number = \
@@ -109,8 +115,9 @@ class DelugePDU(object):
 
     @classmethod
     def create_req_packet(cls, version, page_number, packets):
-        message = pickle.dumps([version, page_number, packets])
-        return cls(cls.REQ, message)
+        header = struct.pack(cls.REQ_HEADER, version, page_number)
+        message = struct.pack('B' * len(packets), *packets)
+        return cls(cls.REQ, header + message)
 
 
 class DelugeState(object):
@@ -128,7 +135,7 @@ class Deluge(net.layers.application.Application):
     PACKETS_PER_PAGE = PAGE_SIZE / PACKET_SIZE
 
     # Bounds for the length of each round.
-    T_MIN = 1
+    T_MIN = .5
     T_MAX = 60 * 10 # 10 minutes
 
     # Threshold of overheard packets for message suppression.
