@@ -14,15 +14,17 @@ class Message(object):
 
     def __init__(self, string):
         self.string = string
+        self._int_array = self.escape(self.to_int_array(string))
+
+    def __len__(self):
+        return len(self._int_array)
 
     def _to_int_array(self, size):
-        int_array = self.to_int_array(self.string)
-        int_array = self.escape(int_array)
-        return self.addpadding(int_array, size)
+        return self.addpadding(self._int_array, size)
 
     def to_size(self, size):
-        int_array = self._to_int_array(size)
-        return self.int_array_to_string(int_array)
+        assert len(self) <= size
+        return self.int_array_to_string(self._to_int_array(size))
 
     @classmethod
     def from_string(cls, string):
