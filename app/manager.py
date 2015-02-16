@@ -267,9 +267,9 @@ if __name__ == '__main__':
                         help='The protocol to run.')
     config.add_argument('-k', type=int, default=1,
                         help='Number of overheard messages to trigger message suppression.')
-    config.add_argument('--tmin', type=int, default=1,
+    config.add_argument('--tmin', type=float, default=1,
                         help='The lower bound for the round window length, in seconds.')
-    config.add_argument('--tmax', type=int, default=60 * 10,
+    config.add_argument('--tmax', type=float, default=60 * 10,
                         help='The upper bound for the round window length, in seconds.')
     config.add_argument('--pagesize', type=int, default=1024,
                         help='The number of bytes in each page.')
