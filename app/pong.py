@@ -3,6 +3,7 @@ import ctypes
 import ctypes.util
 import datetime
 import net.layers.application
+import net.layers.base
 import net.layers.transport
 import ping
 import struct
@@ -183,10 +184,10 @@ class Pong(net.layers.application.Application):
 
     def send_time_set(self):
         time_set = Message.create_time_set(TimeSpec.get_current_time())
-        self._send_message(time_set)
+        self._send_message(time_set, dest_addr=net.layers.base.FLOOD_ADDRESS)
 
-    def _send_message(self, message):
-        self.send(message.to_string())
+    def _send_message(self, message, dest_addr=None):
+        self._send(message.to_string(), dest_addr=dest_addr)
         self.log("Sending message (%s): %s" % (len(message.to_string()), repr(message)))
 
 

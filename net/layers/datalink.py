@@ -52,7 +52,7 @@ class DataLink(base.BaseLayer):
     - Converts variable sized data into fixed sized packets.
     - Forwards packets along the network.
     """
-    def __init__(self, addr, ttl=0, buffer_window=10):
+    def __init__(self, addr, ttl=5, buffer_window=10):
         super(DataLink, self).__init__(addr)
         self.last_message_id = 0
 
@@ -82,6 +82,10 @@ class DataLink(base.BaseLayer):
         # Source is the node where the packet originated from.
         data, sender_addr = args
         data_unit = DataLinkPDU.from_string(data)
+
+        # Ignore packet if we are the source
+        if self.addr == data_unit.source_addr:
+            return
 
         # Ignore packet if we've already received it.
         source_addr = data_unit.source_addr
@@ -140,7 +144,8 @@ class DataLink(base.BaseLayer):
     def _maybe_buffer_incoming(self, data_unit):
         # Only buffer packets that are intended for us.
         if data_unit.dest_addr != base.BROADCAST_ADDRESS and \
-                data_unit.dest_addr != self.addr:
+                data_unit.dest_addr != self.addr and \
+                data_unit.dest_addr != base.FLOOD_ADDRESS:
             return
 
         source_addr = data_unit.source_addr
@@ -161,25 +166,15 @@ class DataLink(base.BaseLayer):
     def _clear_buffer(self, source_addr, message_id):
         # Remove all messages older than (source_addr, message_id - 10)
         min_m_id = (message_id - self.buffer_window) % 255
+        max_m_id = (message_id + self.buffer_window) % 255
         for m_id in self.buffer[source_addr].keys():
-            if min_m_id <= m_id <= message_id:
-                continue
+            if min_m_id < max_m_id:
+                if min_m_id <= m_id <= max_m_id:
+                    continue
+            elif min_m_id > max_m_id:
+                if min_m_id <= m_id:
+                    continue
+                elif m_id <= max_m_id:
+                    continue
             del self.buffer[source_addr][m_id]
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 

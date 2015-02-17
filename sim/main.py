@@ -57,6 +57,7 @@ def main(args):
         for addr in args.seed:
             # TODO. This should be a generic method that works for every protocol.
             nodes[addr].get_application(APP_CLS.ADDRESS).send_ping()
+            nodes[addr].get_application(APP_CLS.ADDRESS).send_time_set()
 
     if args.protocol == 'deluge' or args.protocol == 'rateless':
         # Read file and seed in the network.

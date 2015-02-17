@@ -4,6 +4,7 @@ import threading
 
 # 65535 => \xff\xff
 BROADCAST_ADDRESS = 65535
+FLOOD_ADDRESS = 65534
 
 
 class BaseLayer(object):
