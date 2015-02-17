@@ -148,6 +148,10 @@ class Pong(net.layers.application.Application):
     """Collection of utilities for managing the Beaglebone."""
     ADDRESS = ("", 11004)
 
+    def __init__(self, addr):
+        super(Pong, self).__init__(addr)
+        self.mode = None
+
     def set_mode(self, mode):
         self.mode = mode
 

@@ -54,7 +54,8 @@ class Application(base.BaseLayer):
         self.log(message)
 
     def log(self, message):
-        self.logger.info(message)
+        prefix = "(%s)" % self.addr
+        self.logger.info("%s - %s" % (prefix, message))
 
     @classmethod
     def create_and_run_application(cls):

@@ -7,15 +7,15 @@ import time
 import topology
 
 import app.deluge
-import app.flooding
+import app.pong
 import app.rateless_deluge
 
 
 # The various protocols that can be used in the simulator.
 PROTOCOLS = {
-    'flood': app.flooding.Flooding,
     'deluge': app.deluge.Deluge,
     'rateless': app.rateless_deluge.RatelessDeluge,
+    'pong': app.pong.Pong,
 }
 
 
@@ -53,12 +53,18 @@ def main(args):
     for addr, node in nodes.iteritems():
         node.start_application(APP_CLS(addr))
 
-    # Read file and seed in the network.
-    data = args.file.read()
-    args.file.close()
-    for addr in args.seed:
-        # TODO. This should be a generic method that works for every protocol.
-        nodes[addr].get_application(APP_CLS.ADDRESS).new_version(1, data)
+    if args.protocol == 'pong':
+        for addr in args.seed:
+            # TODO. This should be a generic method that works for every protocol.
+            nodes[addr].get_application(APP_CLS.ADDRESS).send_ping()
+
+    if args.protocol == 'deluge' or args.protocol == 'rateless':
+        # Read file and seed in the network.
+        data = args.file.read()
+        args.file.close()
+        for addr in args.seed:
+            # TODO. This should be a generic method that works for every protocol.
+            nodes[addr].get_application(APP_CLS.ADDRESS).new_version(1, data)
 
     # Don't terminate.
     time.sleep(500)
@@ -67,7 +73,7 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='XBNS Simulator', formatter_class=argparse.RawTextHelpFormatter)
-    parser.add_argument('--protocol', '-p', required=True,
+    parser.add_argument('--protocol', '-p', default='deluge',
                         choices=PROTOCOLS.keys(),
                         help='Protocol to run in simulation.')
     # TODO: A easy way to specify topology.
