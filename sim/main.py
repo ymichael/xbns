@@ -2,13 +2,13 @@ from network import Network
 from node import Node
 from pprint import pprint
 
-import argparse
-import time
-import topology
-
 import app.deluge
 import app.pong
 import app.rateless_deluge
+import argparse
+import config
+import time
+import topology
 
 
 # The various protocols that can be used in the simulator.
@@ -20,6 +20,7 @@ PROTOCOLS = {
 
 
 def main(args):
+    config.SHOULD_LOG = args.log
     topo = topology.parse_topology(args.topo)
 
     print "\n"
@@ -89,5 +90,7 @@ if __name__ == '__main__':
     parser.add_argument('--file', '-f', type=argparse.FileType(),
                         default='./data/20KB.in',
                         help='File to propagate through the network')
+    parser.add_argument('--log', type=bool, default=False,
+                        help='Whether to write to log file.')
     args = parser.parse_args()
     main(args)

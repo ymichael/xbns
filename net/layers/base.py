@@ -1,5 +1,7 @@
+import config
 import Queue as queue
 import logging
+import logging.handlers
 import threading
 
 # 65535 => \xff\xff
@@ -20,10 +22,18 @@ class BaseLayer(object):
         # TODO: Refactor debug level as a cli argument.
         self.logger.setLevel(logging.DEBUG)
         if len(self.logger.handlers) == 0:
-            handler = logging.StreamHandler()
-            handler.setFormatter(
-                logging.Formatter("%(name)s - %(levelname)s - %(asctime)s: %(message)s"))
-            self.logger.addHandler(handler)
+            formatter = logging.Formatter("%(name)s - %(levelname)s - %(asctime)s: %(message)s")
+            stream_handler = logging.StreamHandler()
+            stream_handler.setFormatter(formatter)
+            self.logger.addHandler(stream_handler)
+
+            if config.SHOULD_LOG:
+                file_handler = logging.handlers.RotatingFileHandler(
+                    config.LOG_FILE_NAME, backupCount=5, maxBytes=1024*1024*2)
+                file_handler.setFormatter(formatter)
+                # Each time the device is started, rollover.
+                self.logger.addHandler(file_handler)
+                file_handler.doRollover()
 
     def start_handling_incoming(self, queue):
         self._start_handler(queue, self._handle_incoming)
