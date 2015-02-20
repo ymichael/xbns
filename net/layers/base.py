@@ -26,10 +26,9 @@ class BaseLayer(object):
             stream_handler = logging.StreamHandler()
             stream_handler.setFormatter(formatter)
             self.logger.addHandler(stream_handler)
-
             if config.SHOULD_LOG:
                 file_handler = logging.handlers.RotatingFileHandler(
-                    config.LOG_FILE_NAME, backupCount=5, maxBytes=1024*1024*2)
+                    config.LOG_FILE_NAME, backupCount=5, maxBytes=2097152)
                 file_handler.setFormatter(formatter)
                 # Each time the device is started, rollover.
                 self.logger.addHandler(file_handler)

@@ -24,6 +24,7 @@ def get_log_file_name():
     directory = os.path.dirname(os.path.realpath(__file__))
     log_directory = 'log'
     main_file = __main__.__file__
+    main_file = main_file.replace('./', '')
     main_file = main_file.replace('/', '-')
     main_file = main_file.replace('.py', '')
     file_name = '%s-%s.log' % (main_file, ADDR)

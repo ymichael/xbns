@@ -56,5 +56,6 @@ rsync:
 		--exclude=addr.txt \
 		--exclude=.venv \
 		--exclude=*.pyc \
+		--exclude=*.log* \
 		--exclude=out \
 		. michael@bone:~/xbns
