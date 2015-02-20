@@ -68,6 +68,8 @@ if __name__ == '__main__':
     parser.add_argument('-b', '--baudrate', default=57600, type=int,
                         help='Baudrate')
     parser.add_argument('-m', '--myid', help='Module id, 16-bit')
+    parser.add_argument('--power', type=int, default=4, choices=[0,1,2,3,4],
+                        help='Power level of xbee.')
     parser.add_argument('-p', '--panid',
                         help='Personal Area Network (PAN) id, 64-bit, eg. 0x1234')
     parser.add_argument('-c', '--channel', help='Channel, 0x0B - 0x1A (11 - 26)')

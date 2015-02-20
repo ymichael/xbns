@@ -54,13 +54,18 @@ class XBeeRadio(base.BaseRadio):
         self.panid = value
         self.at_command("ID", self.tohex(value))
 
+    def set_power_level(self, value):
+        assert 0 <= value <= 4
+        self.at_command("PL", self.tohex(value))
+
+
     def at_command(self, cmd, param):
         # TODO: frame_id, if specified will yield a response (with information
         # on the outcome of the command).
         self.xbee_module.at(command=cmd, parameter=param)
 
     @classmethod
-    def create(cls, port, baudrate, panid, channel, myid):
+    def create(cls, port, baudrate, panid, channel, myid, power_level=4):
         if not (0 <= myid <= 2**16):
             raise ValueError("Expected 16-bit Module Id, got: %s" % myid)
         if not (0 <= panid < 2**64):
@@ -75,4 +80,5 @@ class XBeeRadio(base.BaseRadio):
         radio.set_panid(panid)
         radio.set_channel(channel)
         radio.set_myid(myid)
+        radio.set_power_level(power_level)
         return radio
