@@ -22,7 +22,7 @@ class BaseLayer(object):
         if len(self.logger.handlers) == 0:
             handler = logging.StreamHandler()
             handler.setFormatter(
-                logging.Formatter("%(name)-10s - %(levelname)-8s: %(message)s"))
+                logging.Formatter("%(name)s - %(levelname)s - %(asctime)s: %(message)s"))
             self.logger.addHandler(handler)
 
     def start_handling_incoming(self, queue):
