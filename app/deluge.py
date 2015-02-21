@@ -446,9 +446,8 @@ class Deluge(net.layers.application.Application):
                 self._enter_rx(sender_addr)
 
         # Network is inconsistent.
-        if self.state == self.STATE_CLS.MAINTAIN:
-            self._set_inconsistent()
-            self._start_next_round(delay=0)
+        self._set_inconsistent()
+        self._start_next_round(delay=0)
 
     def _process_req(self, data_unit):
         self.req_and_data_overheard += 1
