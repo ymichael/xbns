@@ -234,6 +234,7 @@ class Pong(net.layers.application.Application):
 
     def send_pl_set(self, value):
         pl_set = Message.create_pl_set(value)
+        self._handle_incoming_inner(pl_set)
         self._send_message(pl_set)
 
     def _send_message(self, message, dest_addr=None):
@@ -253,6 +254,8 @@ def main(args):
     xbee_radio = net.radio.xbeeradio.XBeeRadio(xbee_module)
     app.set_xbee(xbee_radio)
 
+    once = True
+
     while True:
         if args.mode == Mode.PING:
             app.send_ping()
@@ -261,8 +264,13 @@ def main(args):
             app.send_time_set()
             time.sleep(5)
         elif args.mode == Mode.POWER:
-            app.send_pl_set(args.value)
-            time.sleep(5)
+            if once:
+                app.send_pl_set(args.value)
+                once = False
+            else:
+                app.send_ping()
+            time.sleep(1)
+
         time.sleep(1)
 
 
