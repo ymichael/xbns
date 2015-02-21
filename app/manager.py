@@ -31,11 +31,14 @@ class Mode(object):
     NORMAL_MODE = "NORMAL"
     # Update already running protocols to the given parameters (OTA).
     CONTROL_MODE = "CONTROL"
+    # Listen mode, don't interupt current protocol.
+    LISTEN_MODE = "LISTEN"
 
 
 class ManagerPDU(object):
     ACK = 0
     CTRL = 1
+    PING = 2
 
     HEADER_PREFIX = "B"
     HEADER_PREFIX_SIZE = struct.calcsize(HEADER_PREFIX)
@@ -60,6 +63,9 @@ class ManagerPDU(object):
     def is_ctrl(self):
         return self.msg_type == self.CTRL
 
+    def is_ping(self):
+        return self.msg_type == self.PING
+
     def is_ack(self):
         return self.msg_type == self.ACK
 
@@ -69,6 +75,8 @@ class ManagerPDU(object):
             return 'CTRL'
         elif self.is_ack():
             return 'ACK'
+        elif self.is_ping():
+            return 'PING'
 
     def to_string(self):
         header = struct.pack(self.HEADER_PREFIX, self.msg_type)
@@ -82,8 +90,7 @@ class ManagerPDU(object):
     def __repr__(self):
         if self.is_ctrl():
             return self._repr_ctrl()
-        elif self.is_ack():
-            return self.type
+        return self.type
 
     def _repr_ctrl(self):
         return "%4s, %s, %s/%s, k = %s, t_min = %s, t_max = %s, delay = %s" % \
@@ -105,6 +112,10 @@ class ManagerPDU(object):
     @classmethod
     def create_ack_packet(cls):
         return cls(cls.ACK, message="")
+
+    @classmethod
+    def create_ping_packet(cls):
+        return cls(cls.PING, message="")
 
 
 class Manager(net.layers.application.Application):
@@ -151,6 +162,16 @@ class Manager(net.layers.application.Application):
         if data_unit.is_ctrl():
             self._process_ctrl(data_unit)
 
+        if data_unit.is_ping():
+            self._process_ping()
+
+    def _process_ping(self):
+        self._send_ack()
+        # Get active protocol to send ADV is in normal mode.
+        if self.mode == Mode.NORMAL_MODE:
+            active = self.apps[self.PROTOCOL]
+            active._send_adv(force=True)
+
     def _process_ctrl(self, data_unit):
         self._send_ack()
         self._update_ctrl_parameters(data_unit)
@@ -196,6 +217,8 @@ class Manager(net.layers.application.Application):
             active._start_next_round(self.DELAY)
         elif self.mode == Mode.CONTROL_MODE:
             self._send_ctrl()
+        elif self.mode == Mode.LISTEN_MODE:
+            self._send_ping()
 
     def _send_ctrl(self):
         ctrl = ManagerPDU.create_ctrl_packet(
@@ -210,6 +233,9 @@ class Manager(net.layers.application.Application):
 
     def _send_ack(self):
         self._send_pdu(ManagerPDU.create_ack_packet())
+
+    def _send_ping(self):
+        self._send_pdu(ManagerPDU.create_ping_packet())
 
     def _send_pdu(self, data_unit):
         self._log_send_pdu(data_unit)
@@ -253,7 +279,8 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Manager Application')
     parser.add_argument('--mode', '-m', type=str, default=Mode.NORMAL_MODE,
-                        choices=[Mode.NORMAL_MODE, Mode.CONTROL_MODE])
+                        choices=[Mode.NORMAL_MODE, Mode.CONTROL_MODE,
+                            Mode.LISTEN_MODE])
 
     seed = parser.add_argument_group('Protocol Seed Data')
     seed.add_argument('--file', '-f', type=argparse.FileType(), required=True,

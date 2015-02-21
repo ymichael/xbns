@@ -317,10 +317,10 @@ class Deluge(net.layers.application.Application):
         self._send_adv_timer = threading.Timer(rand_t, self._send_adv)
         self._send_adv_timer.start()
 
-    def _send_adv(self):
+    def _send_adv(self, force=False):
         # Only send ADV if during the current window, we overhear less than K
         # summaries with similar (v, pages).
-        if self.adv_overheard >= self.K:
+        if self.adv_overheard >= self.K and not force:
             self.log("Suppressed ADV")
             return
         adv = self.PDU_CLS.create_adv_packet(self.version,
