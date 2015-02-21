@@ -117,8 +117,6 @@ class RatelessDeluge(deluge.Deluge):
 
     def _process_req(self, data_unit):
         self.req_and_data_overheard += 1
-        # REQ indicates that network is not up-to-date.
-        self._set_inconsistent()
 
         # Only process is REQ was meant for us.
         if data_unit.request_from != self.addr:
@@ -136,8 +134,6 @@ class RatelessDeluge(deluge.Deluge):
 
     def _process_data(self, data_unit):
         self.req_and_data_overheard += 1
-        # DATA indicates that network is not up-to-date.
-        self._set_inconsistent()
 
         # Remove from pending DATA if applicable.
         if data_unit.page_number in self._pending_datas:

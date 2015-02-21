@@ -410,6 +410,14 @@ class Deluge(net.layers.application.Application):
         elif data_unit.is_data():
             self._process_data(data_unit)
 
+        # M2: If in MAINTAIN_STATE and any packet indicates inconsistency,
+        # restart round.
+        if self.state == self.STATE_CLS.MAINTAIN:
+            if data_unit.is_req() or data_unit.is_data():
+                self._set_inconsistent()
+                self._start_next_round(delay=0)
+                return
+
     def _process_adv(self, data_unit, sender_addr):
         # Check if network is consistent.
         if data_unit.version > self.version:
@@ -418,31 +426,32 @@ class Deluge(net.layers.application.Application):
             self.complete_pages = []
             self.total_pages = data_unit.total_pages
         elif data_unit.version < self.version:
-            self._set_inconsistent()
+            if self.state == self.STATE_CLS.MAINTAIN:
+                # Network is inconsistent.
+                self._set_inconsistent()
+                self._start_next_round(delay=0)
             return
         else:
             # Update total_pages.
             self.total_pages = data_unit.total_pages
-
 
         if data_unit.largest_completed_page == len(self.complete_pages):
             # Network is consistent if summary overheard is similar to self.
             self.adv_overheard += 1
             return
 
-        # Network is inconsistent.
-        self._set_inconsistent()
-
         if data_unit.largest_completed_page > len(self.complete_pages):
             # Self not up-to-date.
             if self.state == self.STATE_CLS.MAINTAIN:
                 self._enter_rx(sender_addr)
-                self._start_next_round(delay=0)
+
+        # Network is inconsistent.
+        if self.state == self.STATE_CLS.MAINTAIN:
+            self._set_inconsistent()
+            self._start_next_round(delay=0)
 
     def _process_req(self, data_unit):
         self.req_and_data_overheard += 1
-        # REQ indicates that network is not up-to-date.
-        self._set_inconsistent()
 
         # Only process is REQ was meant for us.
         if data_unit.request_from != self.addr:
@@ -459,8 +468,6 @@ class Deluge(net.layers.application.Application):
 
     def _process_data(self, data_unit):
         self.req_and_data_overheard += 1
-        # DATA indicates that network is not up-to-date.
-        self._set_inconsistent()
 
         # Remove from pending DATA if applicable.
         data_id = (data_unit.page_number, data_unit.packet_number)
