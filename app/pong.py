@@ -34,12 +34,24 @@ class Message(object):
     HEADER_PREFIX = "B"
     HEADER_PREFIX_SIZE = struct.calcsize(HEADER_PREFIX)
 
+    # Simple message to check liveness.
     PING = 0
+
+    # Response for liveness check.
     PONG = 1
+
+    # Request time from neighbours.
     TIME_REQ = 2
+
+    # Sends current time to neighbours.
     TIME_SET = 3
 
+    # Set power level
+    PL_SET = 4
+
+
     TIME_FORMAT = "HBBBBBH"
+    PL_FORMAT = "H"
 
     def __init__(self, msg_type, message):
         self.msg_type = msg_type
@@ -53,6 +65,8 @@ class Message(object):
             self._init_time_req()
         elif self.is_time_set():
             self._init_time_set()
+        elif self.is_pl_set():
+            self._init_pl_set()
 
     def _init_ping(self):
         pass
@@ -66,6 +80,9 @@ class Message(object):
     def _init_time_set(self):
         self.time_tuple = struct.unpack(self.TIME_FORMAT, self.message)
 
+    def _init_pl_set(self):
+        self.power_level = struct.unpack(self.PL_FORMAT, self.message)[0]
+
     def is_ping(self):
         return self.msg_type == self.PING
 
@@ -78,6 +95,9 @@ class Message(object):
     def is_time_set(self):
         return self.msg_type == self.TIME_SET
 
+    def is_pl_set(self):
+        return self.msg_type == self.PL_SET
+
     @property
     def type(self):
         if self.is_ping():
@@ -88,6 +108,8 @@ class Message(object):
             return 'TIME_REQ'
         elif self.is_time_set():
             return 'TIME_SET'
+        elif self.is_pl_set():
+            return 'PL_SET'
 
     def __repr__(self):
         if self.is_ping():
@@ -98,6 +120,8 @@ class Message(object):
             return self._repr_time_req()
         elif self.is_time_set():
             return self._repr_time_set()
+        elif self.is_pl_set():
+            return self._repr_pl_set()
 
     def _repr_ping(self):
         return "%6s" % self.type
@@ -110,6 +134,9 @@ class Message(object):
 
     def _repr_time_set(self):
         return "%6s, %s" % (self.type, self.time_tuple)
+
+    def _repr_pl_set(self):
+        return "%6s" % self.type
 
     def to_string(self):
         header = struct.pack(self.HEADER_PREFIX, self.msg_type)
@@ -129,6 +156,12 @@ class Message(object):
         return cls(cls.TIME_REQ, "")
 
     @classmethod
+    def create_pl_set(cls, pl):
+        assert 0 <= pl <= 4
+        message = struct.pack(cls.PL_FORMAT, pl)
+        return cls(cls.PL_SET, message)
+
+    @classmethod
     def create_pong(cls, time_tuple):
         message = struct.pack(cls.TIME_FORMAT, *time_tuple)
         return cls(cls.PONG, message)
@@ -143,6 +176,7 @@ class Mode(object):
     NORMAL = 'normal'
     PING = 'ping'
     TIME = 'time'
+    POWER = 'power'
 
 
 class Pong(net.layers.application.Application):
@@ -152,6 +186,10 @@ class Pong(net.layers.application.Application):
     def __init__(self, addr):
         super(Pong, self).__init__(addr)
         self.mode = None
+        self.xbee = None
+
+    def set_xbee(self, xbee):
+        self.xbee = xbee
 
     def set_mode(self, mode):
         self.mode = mode
@@ -171,7 +209,15 @@ class Pong(net.layers.application.Application):
             TimeSpec.set_time(message.time_tuple)
             self.send_pong()
 
+        if message.is_time_req():
+            self.send_time_set()
+
         if message.is_ping():
+            self.send_pong()
+
+        if message.is_pl_set():
+            if self.xbee is not None:
+                self.xbee.set_power_level(message.power_level)
             self.send_pong()
 
     def send_ping(self):
@@ -186,6 +232,10 @@ class Pong(net.layers.application.Application):
         time_set = Message.create_time_set(TimeSpec.get_current_time())
         self._send_message(time_set, dest_addr=net.layers.base.FLOOD_ADDRESS)
 
+    def send_pl_set(self, value):
+        pl_set = Message.create_pl_set(value)
+        self._send_message(pl_set)
+
     def _send_message(self, message, dest_addr=None):
         self._send(message.to_string(), dest_addr=dest_addr)
         self.log("Sending message (%s): %s" % (len(message.to_string()), repr(message)))
@@ -194,6 +244,15 @@ class Pong(net.layers.application.Application):
 def main(args):
     app = Pong.create_and_run_application()
     app.set_mode(args.mode)
+
+    import serial
+    import xbee
+    import net.radio.xbeeradio
+    serial_object = serial.Serial(args.port, args.baudrate)
+    xbee_module = xbee.XBee(serial_object, escaped=True)
+    xbee_radio = net.radio.xbeeradio.XBeeRadio(xbee_module)
+    app.set_xbee(xbee_radio)
+
     while True:
         if args.mode == Mode.PING:
             app.send_ping()
@@ -201,12 +260,20 @@ def main(args):
         elif args.mode == Mode.TIME:
             app.send_time_set()
             time.sleep(5)
+        elif args.mode == Mode.POWER:
+            app.send_pl_set(args.value)
+            time.sleep(5)
         time.sleep(1)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Pong Application')
     parser.add_argument('--mode', '-m', type=str, default=Mode.NORMAL,
-                        choices=[Mode.NORMAL, Mode.PING, Mode.TIME])
+                        choices=[Mode.NORMAL, Mode.PING, Mode.TIME, Mode.POWER])
+    parser.add_argument('--value', type=int, default=4, choices=[0,1,2,3,4])
+    parser.add_argument('-s', '--port', default='/dev/ttyUSB0',
+                        help='Serial port')
+    parser.add_argument('-b', '--baudrate', default=57600, type=int,
+                        help='Baudrate')
     args = parser.parse_args()
     main(args)

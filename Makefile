@@ -1,4 +1,4 @@
-.PHONY: start port rsync rmpyc rsync-makefile sim test app pong ping deluge rateless settime clearlogs
+.PHONY: start port rsync rmpyc rsync-makefile sim test app pong ping deluge rateless settime clearlogs setpower
 
 rmpyc:
 	find . | grep -v .venv | grep .pyc | xargs rm
@@ -23,13 +23,16 @@ app:
 	PYTHONPATH=. python net/layers/application.py
 
 pong:
-	PYTHONPATH=. python app/pong.py
+	PYTHONPATH=. python app/pong.py --port=$(SERIALPORT)
 
 ping:
-	PYTHONPATH=. python app/pong.py -m ping
+	PYTHONPATH=. python app/pong.py -m ping --port=$(SERIALPORT)
 
 settime:
-	PYTHONPATH=. python app/pong.py -m time
+	PYTHONPATH=. python app/pong.py -m time --port=$(SERIALPORT)
+
+setpower:
+	PYTHONPATH=. python app/pong.py -m power --port=$(SERIALPORT) --value=$(POWER)
 
 deluge:
 	PYTHONPATH=. python app/run_deluge.py -f data/32B.in

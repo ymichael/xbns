@@ -10,9 +10,6 @@ import time
 
 
 def main(args):
-    # Don't log to file.
-    config.SHOULD_LOG = False
-
     def string_to_int(int_or_hex):
         return int(int_or_hex, 16 if int_or_hex.startswith("0x") else 10)
 

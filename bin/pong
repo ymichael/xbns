@@ -12,5 +12,8 @@
 
 cd /home/michael/xbns
 
-# Pong app
-PYTHONPATH=. python ./app/pong.py
+# Find out which serial port to use
+# Matches /dev/tty.usbserial && /dev/ttyUSB0
+SERIALPORT=$(find /dev | egrep -i "ttyUSB|tty.*usbserial")
+
+PYTHONPATH=. python ./app/pong.py --port=$SERIALPORT
