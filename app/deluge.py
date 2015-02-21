@@ -470,7 +470,7 @@ class Deluge(net.layers.application.Application):
             if self._data_for_next_page_or_less_overheard or \
                     self._req_for_page_less_than_curr_page or \
                     self._req_for_page_less_than_curr_page_buffer:
-                self.log("SUPPRESS TRANSITION INTO RX. %s, %s" % \
+                self.log("SUPPRESS TRANSITION INTO RX. %s, %s, %s" % \
                     (self._data_for_next_page_or_less_overheard, self._req_for_page_less_than_curr_page,
                         self._req_for_page_less_than_curr_page_buffer))
             else:
