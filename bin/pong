@@ -13,4 +13,4 @@
 cd /home/michael/xbns
 
 # Pong app
-PYTHONPATH=. python ./app/pong.py &
+PYTHONPATH=. python ./app/pong.py

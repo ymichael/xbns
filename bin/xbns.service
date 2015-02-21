@@ -3,9 +3,9 @@ Description=XBNS
 
 [Service]
 ExecStart=/home/michael/xbns/bin/xbns
-KillMode=process
+KillMode=mixed
 Type=idle
-Restart=1
+Restart=no
 
 [Install]
 WantedBy=multi-user.target

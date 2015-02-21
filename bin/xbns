@@ -16,5 +16,4 @@ cd /home/michael/xbns
 # Matches /dev/tty.usbserial && /dev/ttyUSB0
 SERIALPORT=$(find /dev | egrep -i "ttyUSB|tty.*usbserial")
 
-PYTHONPATH=. python ./net/main.py --port=$SERIALPORT &
-
+PYTHONPATH=. python ./net/main.py --port=$SERIALPORT

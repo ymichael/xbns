@@ -13,4 +13,4 @@
 cd /home/michael/xbns
 
 # Deluge app
-PYTHONPATH=. python ./app/manager.py -f data/20KB.in &
+PYTHONPATH=. python ./app/manager.py -f data/20KB.in

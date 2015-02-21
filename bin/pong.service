@@ -3,9 +3,9 @@ Description=Pong
 
 [Service]
 ExecStart=/home/michael/xbns/bin/pong
-KillMode=process
+KillMode=mixed
 Type=idle
-Restart=1
+Restart=no
 
 [Install]
 WantedBy=multi-user.target
