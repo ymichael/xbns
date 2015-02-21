@@ -5,7 +5,6 @@ import datetime
 import net.layers.application
 import net.layers.base
 import net.layers.transport
-import ping
 import struct
 import time
 
