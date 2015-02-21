@@ -1,4 +1,4 @@
-.PHONY: start port rsync rmpyc rsync-makefile sim test app pong ping deluge rateless settime clearlogs setpower
+.PHONY: start port rsync rmpyc rsync-makefile sim test app pong ping deluge rateless settime clearlogs setpower logs
 
 rmpyc:
 	find . | grep -v .venv | grep .pyc | xargs rm
@@ -27,6 +27,9 @@ pong:
 
 ping:
 	PYTHONPATH=. python app/pong.py -m ping --port=$(SERIALPORT)
+
+logs:
+	scp bone:~/xbns/log/* log/
 
 settime:
 	PYTHONPATH=. python app/pong.py -m time --port=$(SERIALPORT)
