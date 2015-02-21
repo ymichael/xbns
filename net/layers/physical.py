@@ -18,7 +18,10 @@ class Physical(base.BaseLayer):
     def _listen_to_radio(self):
         while True:
             data = self.radio.receive()
-            self._incoming_queue.put(data)
+            if data[0] == self.radio.TYPE_RX:
+                self._incoming_queue.put(data[1:])
+            elif data[0] == self.radio.TYPE_OTHERS:
+                self.logger.info(data)
 
     def get_incoming_queue(self):
         return self._incoming_queue

@@ -1,7 +1,8 @@
 from collections import defaultdict
+import radio
+import random
 import threading
 import time
-import random
 
 
 class Network(threading.Thread):
@@ -26,7 +27,7 @@ class Network(threading.Thread):
         """Broadcast data from sender."""
         time.sleep(self.delay)
         # Radios expect a tuple of (data, sender_addr)
-        frame = (data, sender)
+        frame = (radio.Radio.TYPE_RX, data, sender)
 
         # Determine if packet should be droped.
         for dest in self.outgoing_links[sender]:

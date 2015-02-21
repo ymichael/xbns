@@ -18,12 +18,12 @@ class XBeeRadio(base.BaseRadio):
         self.xbee_module.tx(dest_addr=self.BROADCAST_ADDRESS, data=data)
 
     def receive(self):
-        while True:
-            frame = self.xbee_module.wait_read_frame()
-            if frame.get('id') == "rx":
-                data = frame.get('rf_data')
-                sender_addr = struct.unpack("H", frame.get('source_addr'))[0]
-                return (data, sender_addr)
+        frame = self.xbee_module.wait_read_frame()
+        if frame.get('id') == "rx":
+            data = frame.get('rf_data')
+            sender_addr = struct.unpack("H", frame.get('source_addr'))[0]
+            return (self.TYPE_RX, data, sender_addr)
+        return (self.TYPE_OTHERS, frame)
 
     def tohex(self, integer):
         """Returns a hex representation of an integer.
@@ -58,11 +58,10 @@ class XBeeRadio(base.BaseRadio):
         assert 0 <= value <= 4
         self.at_command("PL", self.tohex(value))
 
-
     def at_command(self, cmd, param):
-        # TODO: frame_id, if specified will yield a response (with information
-        # on the outcome of the command).
         self.xbee_module.at(command=cmd, parameter=param)
+        # Read the current setting.
+        self.xbee_module.at(command=cmd, frame_id='1')
 
     @classmethod
     def create(cls, port, baudrate, panid, channel, myid, power_level=4):
