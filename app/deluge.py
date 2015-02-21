@@ -276,6 +276,15 @@ class Deluge(net.layers.application.Application):
         # The number of REQ sent since entering the RX state.
         self._rx_num_sent = 0
 
+        # Received REQ messages in the current round.
+        self._req_for_page_less_than_curr_page = False
+
+        # Buffer previous round result.
+        self._req_for_page_less_than_curr_page_buffer = False
+
+        # Received DATA messages for next page or less in the current round.
+        self._data_for_next_page_or_less_overheard = False
+
     def stop(self):
         self._stopped = True
         self._cancel_all_timers()
@@ -304,6 +313,10 @@ class Deluge(net.layers.application.Application):
         self.adv_overheard = 0
         self.round_number += 1
         self.rounds_in_state += 1
+        self._req_for_page_less_than_curr_page_buffer = \
+            self._req_for_page_less_than_curr_page
+        self._req_for_page_less_than_curr_page = False
+        self._data_for_next_page_or_less_overheard = False
 
         self._log_round()
         if self.state == self.STATE_CLS.MAINTAIN:
@@ -403,6 +416,16 @@ class Deluge(net.layers.application.Application):
         if self._stopped:
             return
 
+        # Record state regarding overheard REQ and DATA packets
+        if data_unit.is_req() or data_unit.is_data():
+            self.req_and_data_overheard += 1
+        if data_unit.is_req() and \
+                data_unit.page_number < len(self.complete_pages):
+            self._req_for_page_less_than_curr_page = True
+        if data_unit.is_data() and \
+                data_unit.page_number <= len(self.complete_pages):
+            self._data_for_next_page_or_less_overheard = True
+
         if data_unit.is_adv():
             self._process_adv(data_unit, sender_addr)
         elif data_unit.is_req():
@@ -441,33 +464,38 @@ class Deluge(net.layers.application.Application):
             return
 
         if data_unit.largest_completed_page > len(self.complete_pages):
-            # Self not up-to-date.
-            if self.state == self.STATE_CLS.MAINTAIN:
-                self._enter_rx(sender_addr)
+            # M5: transit to RX unless, a REQ for a page we can fulfill was
+            # overheard within the last 2 rounds OR a DATA for a page we want/
+            # can fulfil was overheard in the last round.
+            if self._data_for_next_page_or_less_overheard or \
+                    self._req_for_page_less_than_curr_page or \
+                    self._req_for_page_less_than_curr_page_buffer:
+                self.log("SUPPRESS TRANSITION INTO RX. %s, %s" % \
+                    (self._data_for_next_page_or_less_overheard, self._req_for_page_less_than_curr_page,
+                        self._req_for_page_less_than_curr_page_buffer))
+            else:
+                if self.state == self.STATE_CLS.MAINTAIN:
+                    self._enter_rx(sender_addr)
 
         # Network is inconsistent.
         self._set_inconsistent()
         self._start_next_round(delay=0)
 
     def _process_req(self, data_unit):
-        self.req_and_data_overheard += 1
-
+        # React to REQ, transit to TX state if we have the requested page.
+        if not (data_unit.page_number < len(self.complete_pages)):
+            return
         # Only process is REQ was meant for us.
         if data_unit.request_from != self.addr:
             return
-
-        # React to REQ, transit to TX state if we have the requested page.
-        if data_unit.page_number < len(self.complete_pages):
-            # We are able to fulfill request.
-            if self.state == self.STATE_CLS.MAINTAIN:
-                self._change_state(self.STATE_CLS.TX)
-                for packet in data_unit.packets:
-                    self._pending_datas.add((data_unit.page_number, packet))
-                self._start_next_round(delay=0)
+        # We are able to fulfill request.
+        if self.state == self.STATE_CLS.MAINTAIN:
+            self._change_state(self.STATE_CLS.TX)
+            for packet in data_unit.packets:
+                self._pending_datas.add((data_unit.page_number, packet))
+            self._start_next_round(delay=0)
 
     def _process_data(self, data_unit):
-        self.req_and_data_overheard += 1
-
         # Remove from pending DATA if applicable.
         data_id = (data_unit.page_number, data_unit.packet_number)
         if data_id in self._pending_datas:

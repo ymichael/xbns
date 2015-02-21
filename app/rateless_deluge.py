@@ -116,25 +116,21 @@ class RatelessDeluge(deluge.Deluge):
         self._change_state(self.STATE_CLS.MAINTAIN)
 
     def _process_req(self, data_unit):
-        self.req_and_data_overheard += 1
-
+        # React to REQ, transit to TX state only if we have the requested page.
+        if not (data_unit.page_number < len(self.complete_pages)):
+            return
         # Only process is REQ was meant for us.
         if data_unit.request_from != self.addr:
             return
-
-        # React to REQ, transit to TX state if we have the requested page.
-        if data_unit.page_number < len(self.complete_pages):
-            # We are able to fulfill request.
-            if self.state == self.STATE_CLS.MAINTAIN:
-                self._change_state(self.STATE_CLS.TX)
-                self._pending_datas[data_unit.page_number] = \
-                    max(data_unit.number_of_packets,
-                        self._pending_datas.get(data_unit.page_number, 0))
-                self._start_next_round(delay=0)
+        # We are able to fulfill request.
+        if self.state == self.STATE_CLS.MAINTAIN:
+            self._change_state(self.STATE_CLS.TX)
+            self._pending_datas[data_unit.page_number] = \
+                max(data_unit.number_of_packets,
+                    self._pending_datas.get(data_unit.page_number, 0))
+            self._start_next_round(delay=0)
 
     def _process_data(self, data_unit):
-        self.req_and_data_overheard += 1
-
         # Remove from pending DATA if applicable.
         if data_unit.page_number in self._pending_datas:
             self.log("Suppressed DATA")
