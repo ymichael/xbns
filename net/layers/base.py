@@ -31,6 +31,7 @@ class BaseLayer(object):
                     config.LOG_FILE_NAME, backupCount=5, maxBytes=2097152)
                 file_handler.setFormatter(formatter)
                 self.logger.addHandler(file_handler)
+        self.logger.info("Starting up.")
 
     def start_handling_incoming(self, queue):
         self._start_handler(queue, self._handle_incoming)
