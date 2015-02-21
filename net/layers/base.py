@@ -30,9 +30,7 @@ class BaseLayer(object):
                 file_handler = logging.handlers.RotatingFileHandler(
                     config.LOG_FILE_NAME, backupCount=5, maxBytes=2097152)
                 file_handler.setFormatter(formatter)
-                # Each time the device is started, rollover.
                 self.logger.addHandler(file_handler)
-                file_handler.doRollover()
 
     def start_handling_incoming(self, queue):
         self._start_handler(queue, self._handle_incoming)
