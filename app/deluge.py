@@ -22,7 +22,8 @@ class DelugePDU(object):
     DATA_HEADER = "III"
     DATA_HEADER_SIZE = struct.calcsize(DATA_HEADER)
 
-    REQ_HEADER = "II"
+    # version, page_number
+    REQ_HEADER = "HII"
     REQ_HEADER_SIZE = struct.calcsize(REQ_HEADER)
 
     ADV = 0
@@ -45,7 +46,7 @@ class DelugePDU(object):
             pickle.loads(self.message)
 
     def _init_req(self):
-        self.version, self.page_number = \
+        self.request_from, self.version, self.page_number = \
             struct.unpack(self.REQ_HEADER, self.message[:self.REQ_HEADER_SIZE])
         packets = self.message[self.REQ_HEADER_SIZE:]
         self.packets = struct.unpack('B' * len(packets), packets)
@@ -91,7 +92,8 @@ class DelugePDU(object):
                     self.total_pages, self.data_hash)
 
     def _repr_req(self):
-        return "%4s, %2s %s" % (self.type, self.page_number, self.packets)
+        return "%4s, request_from: %s, %2s %s" % \
+            (self.type, self.request_from, self.page_number, self.packets)
 
     def _repr_data(self):
         return "%4s, %2s, %2s" % (self.type, self.page_number, self.packet_number)
@@ -114,8 +116,8 @@ class DelugePDU(object):
         return cls(cls.DATA, header + data)
 
     @classmethod
-    def create_req_packet(cls, version, page_number, packets):
-        header = struct.pack(cls.REQ_HEADER, version, page_number)
+    def create_req_packet(cls, request_from, version, page_number, packets):
+        header = struct.pack(cls.REQ_HEADER, request_from, version, page_number)
         message = struct.pack('B' * len(packets), *packets)
         return cls(cls.REQ, header + message)
 
@@ -255,6 +257,9 @@ class Deluge(net.layers.application.Application):
         # from the MAINTAIN to the RX state.
         self._page_to_req = None
 
+        # The node that sent the ADV that triggered entry into the RX state.
+        self._rx_source = None
+
     def stop(self):
         self._stopped = True
         self._cancel_all_timers()
@@ -346,7 +351,8 @@ class Deluge(net.layers.application.Application):
         else:
             current_packets = set(self.buffering_pages[self._page_to_req].keys())
         missing_packets = set(xrange(self.PACKETS_PER_PAGE)) - current_packets
-        return self.PDU_CLS.create_req_packet(self.version, self._page_to_req, missing_packets)
+        return self.PDU_CLS.create_req_packet(
+            self._rx_source, self.version, self._page_to_req, missing_packets)
 
     def _maybe_exit_rx(self):
         # Don't exit in the first round.
@@ -374,20 +380,20 @@ class Deluge(net.layers.application.Application):
         transport_pdu = net.layers.transport.TransportPDU.from_string(data)
         data_unit = self.PDU_CLS.from_string(transport_pdu.message)
         self._log_receive_pdu(data_unit, transport_pdu.source_addr)
-        self._handle_incoming_inner(data_unit)
+        self._handle_incoming_inner(data_unit, transport_pdu.source_addr)
 
-    def _handle_incoming_inner(self, data_unit):
+    def _handle_incoming_inner(self, data_unit, sender_addr):
         if self._stopped:
             return
 
         if data_unit.is_adv():
-            self._process_adv(data_unit)
+            self._process_adv(data_unit, sender_addr)
         elif data_unit.is_req():
             self._process_req(data_unit)
         elif data_unit.is_data():
             self._process_data(data_unit)
 
-    def _process_adv(self, data_unit):
+    def _process_adv(self, data_unit, sender_addr):
         # Check if network is consistent.
         if data_unit.version > self.version:
             self.version = data_unit.version
@@ -415,6 +421,7 @@ class Deluge(net.layers.application.Application):
             if self.state == self.STATE_CLS.MAINTAIN:
                 # Set the next page to be requested.
                 self._page_to_req = len(self.complete_pages)
+                self._rx_source = sender_addr
                 self._change_state(self.STATE_CLS.RX)
                 self._start_next_round(delay=0)
 
@@ -422,6 +429,10 @@ class Deluge(net.layers.application.Application):
         self.req_and_data_overheard += 1
         # REQ indicates that network is not up-to-date.
         self._set_inconsistent()
+
+        # Only process is REQ was meant for us.
+        if data_unit.request_from != self.addr:
+            return
 
         # React to REQ, transit to TX state if we have the requested page.
         if data_unit.page_number < len(self.complete_pages):
@@ -464,6 +475,7 @@ class Deluge(net.layers.application.Application):
             self.check_if_completed()
             if self.state == self.STATE_CLS.RX and next_page == self._page_to_req:
                 self._page_to_req = None
+                self._rx_source = None
                 self._change_state(self.STATE_CLS.MAINTAIN)
             del self.buffering_pages[next_page]
             next_page += 1

@@ -2,7 +2,6 @@ import coding.message
 import coding.ff
 import deluge
 import itertools
-import pickle
 import random
 import struct
 
@@ -17,9 +16,12 @@ class RatelessDelugePDU(deluge.DelugePDU):
     DATA_FORMAT = "II" + ("B" * ROWS_REQUIRED) + \
         ("B" * deluge.Deluge.PACKET_SIZE)
 
+    # request_from, version, page, num_packets
+    REQ_HEADER = "HIII"
+
     def _init_req(self):
-        self.version, self.page_number, self.number_of_packets = \
-            pickle.loads(self.message)
+        self.request_from, self.version, self.page_number, self.number_of_packets = \
+            struct.unpack(self.REQ_HEADER, self.message)
 
     def _init_data(self):
         x = struct.unpack(self.DATA_FORMAT, self.message)
@@ -29,7 +31,8 @@ class RatelessDelugePDU(deluge.DelugePDU):
         self.data = x[2 + ROWS_REQUIRED:]
 
     def _repr_req(self):
-        return "%4s, %2s %s" % (self.type, self.page_number, self.number_of_packets)
+        return "%4s, request_from: %s, %2s %s" % \
+            (self.type, self.request_from, self.page_number, self.number_of_packets)
 
     def _repr_data(self):
         return "%4s, %2s" % (self.type, self.page_number)
@@ -43,8 +46,9 @@ class RatelessDelugePDU(deluge.DelugePDU):
         return cls(cls.DATA, message)
 
     @classmethod
-    def create_req_packet(cls, version, page_number, number_of_packets):
-        message = pickle.dumps([version, page_number, number_of_packets])
+    def create_req_packet(cls, request_from, version, page_number, number_of_packets):
+        message = struct.pack(cls.REQ_HEADER, request_from, version,
+                              page_number, number_of_packets)
         return cls(cls.REQ, message)
 
 
@@ -93,7 +97,7 @@ class RatelessDeluge(deluge.Deluge):
         else:
             packets_required = self.buffering_pages[self._page_to_req].get_rows_required()
         return self.PDU_CLS.create_req_packet(
-            self.version, self._page_to_req, packets_required)
+            self._rx_source, self.version, self._page_to_req, packets_required)
 
     def _get_random_coeffs(self):
         m = coding.ff.Matrix()
@@ -115,6 +119,10 @@ class RatelessDeluge(deluge.Deluge):
         self.req_and_data_overheard += 1
         # REQ indicates that network is not up-to-date.
         self._set_inconsistent()
+
+        # Only process is REQ was meant for us.
+        if data_unit.request_from != self.addr:
+            return
 
         # React to REQ, transit to TX state if we have the requested page.
         if data_unit.page_number < len(self.complete_pages):
@@ -154,6 +162,7 @@ class RatelessDeluge(deluge.Deluge):
             self.complete_pages.append(matrix)
             self.check_if_completed()
             if self.state == self.STATE_CLS.RX and next_page == self._page_to_req:
+                self._rx_source = None
                 self._page_to_req = None
                 self._change_state(self.STATE_CLS.MAINTAIN)
             del self.buffering_pages[next_page]
