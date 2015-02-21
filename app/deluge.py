@@ -140,6 +140,19 @@ class Deluge(net.layers.application.Application):
     T_MIN = .5
     T_MAX = 60 * 10 # 10 minutes
 
+    #########################
+    # REQ related parameters.
+    ########################
+    # Send REQ after random delay between [0, T_R]
+    T_R = .25
+    # Packet Transmission time.
+    T_TX = .2
+    # Number of T_TX to wait before sending another REQ.
+    W = 8
+    # Max number of REQ to send before returning to MAINTAIN state. (lamda in
+    # the paper.)
+    RX_MAX = 2
+
     # Threshold of overheard packets for message suppression.
     K = 1
 
@@ -260,6 +273,9 @@ class Deluge(net.layers.application.Application):
         # The node that sent the ADV that triggered entry into the RX state.
         self._rx_source = None
 
+        # The number of REQ sent since entering the RX state.
+        self._rx_num_sent = 0
+
     def stop(self):
         self._stopped = True
         self._cancel_all_timers()
@@ -307,7 +323,7 @@ class Deluge(net.layers.application.Application):
 
     def _round_rx(self):
         self._maybe_exit_rx()
-        self._start_next_round(delay=self.t)
+        self._start_next_round(delay=self.W * self.T_TX)
         self._send_req_delayed()
 
     def _round_tx(self):
@@ -343,6 +359,7 @@ class Deluge(net.layers.application.Application):
         if self.req_and_data_overheard or self._page_to_req is None:
             self.log("Suppressed REQ")
             return
+        self._rx_num_sent += 1
         self._send_pdu(self._create_req())
 
     def _create_req(self):
@@ -355,14 +372,14 @@ class Deluge(net.layers.application.Application):
             self._rx_source, self.version, self._page_to_req, missing_packets)
 
     def _maybe_exit_rx(self):
-        # Don't exit in the first round.
         # If DATA rate of the previous round is poor (less than 1 useful DATA
         # packet was received, useful: missing and belonging to the page that
         # triggered entry into the RX state). Exit RX State.
-        if self.rounds_in_state != 1 and \
+        if self._rx_num_sent >= self.RX_MAX and \
                 self._rx_data_rate < 1:
             self.log("DATA rate too low.")
-            self._change_state(self.STATE_CLS.MAINTAIN)
+            self._exit_rx()
+            self._start_next_round(delay=0)
 
         # Reset counter.
         self._rx_data_rate = 0
@@ -419,10 +436,7 @@ class Deluge(net.layers.application.Application):
         if data_unit.largest_completed_page > len(self.complete_pages):
             # Self not up-to-date.
             if self.state == self.STATE_CLS.MAINTAIN:
-                # Set the next page to be requested.
-                self._page_to_req = len(self.complete_pages)
-                self._rx_source = sender_addr
-                self._change_state(self.STATE_CLS.RX)
+                self._enter_rx(sender_addr)
                 self._start_next_round(delay=0)
 
     def _process_req(self, data_unit):
@@ -474,11 +488,22 @@ class Deluge(net.layers.application.Application):
             self.complete_pages.append(self.buffering_pages[next_page])
             self.check_if_completed()
             if self.state == self.STATE_CLS.RX and next_page == self._page_to_req:
-                self._page_to_req = None
-                self._rx_source = None
-                self._change_state(self.STATE_CLS.MAINTAIN)
+                self._exit_rx()
             del self.buffering_pages[next_page]
             next_page += 1
+
+    def _enter_rx(self, rx_source):
+        # Set the next page to be requested.
+        self._page_to_req = len(self.complete_pages)
+        self._rx_source = rx_source
+        self._rx_num_sent = 0
+        self._change_state(self.STATE_CLS.RX)
+
+    def _exit_rx(self):
+        self._page_to_req = None
+        self._rx_source = None
+        self._rx_num_sent = 0
+        self._change_state(self.STATE_CLS.MAINTAIN)
 
     def _send_pdu(self, data_unit):
         self._log_send_pdu(data_unit)
@@ -511,4 +536,4 @@ class Deluge(net.layers.application.Application):
         return random.uniform(self.t / 2.0, self.t)
 
     def _get_random_t_req(self):
-        return random.uniform(0, self.t / 2.0)
+        return random.uniform(0, self.T_R)
