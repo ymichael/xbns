@@ -33,20 +33,11 @@ class Message(object):
     HEADER_PREFIX = "B"
     HEADER_PREFIX_SIZE = struct.calcsize(HEADER_PREFIX)
 
-    # Simple message to check liveness.
-    PING = 0
-
-    # Response for liveness check.
-    PONG = 1
-
-    # Request time from neighbours.
-    TIME_REQ = 2
-
-    # Sends current time to neighbours.
-    TIME_SET = 3
-
-    # Set power level
-    PL_SET = 4
+    PING =     0  # Simple message to check liveness.
+    PONG =     1  # Response for liveness check.
+    TIME_REQ = 2  # Request time from neighbours.
+    TIME_SET = 3  # Sends current time to neighbours.
+    PL_SET =   4  # Set power level
 
 
     TIME_FORMAT = "HBBBBBH"
