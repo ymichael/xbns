@@ -33,12 +33,11 @@ class Message(object):
     HEADER_PREFIX = "B"
     HEADER_PREFIX_SIZE = struct.calcsize(HEADER_PREFIX)
 
-    PING =     0  # Simple message to check liveness.
-    PONG =     1  # Response for liveness check.
-    TIME_REQ = 2  # Request time from neighbours.
-    TIME_SET = 3  # Sends current time to neighbours.
-    PL_SET =   4  # Set power level
-
+    PING =       0  # Simple message to check liveness.
+    PONG =       1  # Response for liveness check.
+    TIME_REQ =   2  # Request time from neighbours.
+    TIME_SET =   3  # Sends current time to neighbours.
+    PL_SET =     4  # Set power level
 
     TIME_FORMAT = "HBBBBBH"
     PL_FORMAT = "H"
@@ -47,25 +46,15 @@ class Message(object):
         self.msg_type = msg_type
         self.message = message
 
-        if self.is_ping():
-            self._init_ping()
-        elif self.is_pong():
+        if self.is_pong():
             self._init_pong()
-        elif self.is_time_req():
-            self._init_time_req()
-        elif self.is_time_set():
+        if self.is_time_set():
             self._init_time_set()
-        elif self.is_pl_set():
+        if self.is_pl_set():
             self._init_pl_set()
-
-    def _init_ping(self):
-        pass
 
     def _init_pong(self):
         self.time_tuple = struct.unpack(self.TIME_FORMAT, self.message)
-
-    def _init_time_req(self):
-        pass
 
     def _init_time_set(self):
         self.time_tuple = struct.unpack(self.TIME_FORMAT, self.message)
@@ -90,43 +79,22 @@ class Message(object):
 
     @property
     def type(self):
-        if self.is_ping():
-            return 'PING'
-        elif self.is_pong():
-            return 'PONG'
-        elif self.is_time_req():
-            return 'TIME_REQ'
-        elif self.is_time_set():
-            return 'TIME_SET'
-        elif self.is_pl_set():
-            return 'PL_SET'
+        if self.is_ping(): return 'PING'
+        if self.is_pong(): return 'PONG'
+        if self.is_time_req(): return 'TIME_REQ'
+        if self.is_time_set(): return 'TIME_SET'
+        if self.is_pl_set(): return 'PL_SET'
 
     def __repr__(self):
-        if self.is_ping():
-            return self._repr_ping()
-        elif self.is_pong():
-            return self._repr_pong()
-        elif self.is_time_req():
-            return self._repr_time_req()
-        elif self.is_time_set():
-            return self._repr_time_set()
-        elif self.is_pl_set():
-            return self._repr_pl_set()
-
-    def _repr_ping(self):
+        if self.is_pong(): return self._repr_pong()
+        if self.is_time_set(): return self._repr_time_set()
         return "%6s" % self.type
 
     def _repr_pong(self):
         return "%6s, %s" % (self.type, self.time_tuple)
 
-    def _repr_time_req(self):
-        return "%6s" % self.type
-
     def _repr_time_set(self):
         return "%6s, %s" % (self.type, self.time_tuple)
-
-    def _repr_pl_set(self):
-        return "%6s" % self.type
 
     def to_string(self):
         header = struct.pack(self.HEADER_PREFIX, self.msg_type)
