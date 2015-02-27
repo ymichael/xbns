@@ -39,6 +39,19 @@ class Message(object):
     TIME_SET =   3  # Sends current time to neighbours.
     PL_SET =     4  # Set power level
 
+    # Topology related messages.
+    # 1. To get neighbours, node sends a TOPO_PING and keep tracks of the number
+    #    of TOPO_PONG(s) received from various nodes.
+    # 2. To get network topology, initiate a TOPO_POLL, which causes each node to
+    #    perform a TOPO_PING, receive local information about neighbours then
+    #    broadcast a TOPO_FLOOD with this information.
+    # 3. To get a particular node's topology information, send a TOPO_REQ.
+    TOPO_POLL =  5  # Initiates TOPO_FLOOD
+    TOPO_REQ =   6  # Requests for topology information.
+    TOPO_FLOOD = 7  # Flood network with messages about local topology.
+    TOPO_PING =  8  # Broadcasts a ping to get neighbour information.
+    TOPO_PONG =  9  # Responds to neighbours TOPO_PING
+
     TIME_FORMAT = "HBBBBBH"
     PL_FORMAT = "H"
 
@@ -77,6 +90,21 @@ class Message(object):
     def is_pl_set(self):
         return self.msg_type == self.PL_SET
 
+    def is_topo_poll(self):
+        return self.msg_type == self.TOPO_POLL
+
+    def is_topo_req(self):
+        return self.msg_type == self.TOPO_REQ
+
+    def is_topo_flood(self):
+        return self.msg_type == self.TOPO_FLOOD
+
+    def is_topo_ping(self):
+        return self.msg_type == self.TOPO_PING
+
+    def is_topo_pong(self):
+        return self.msg_type == self.TOPO_PONG
+
     @property
     def type(self):
         if self.is_ping(): return 'PING'
@@ -84,6 +112,11 @@ class Message(object):
         if self.is_time_req(): return 'TIME_REQ'
         if self.is_time_set(): return 'TIME_SET'
         if self.is_pl_set(): return 'PL_SET'
+        if self.is_topo_poll(): return 'TOPO_POLL'
+        if self.is_topo_req(): return 'TOPO_REQ'
+        if self.is_topo_flood(): return 'TOPO_FLOOD'
+        if self.is_topo_ping(): return 'TOPO_PING'
+        if self.is_topo_pong(): return 'TOPO_PONG'
 
     def __repr__(self):
         if self.is_pong(): return self._repr_pong()
@@ -128,6 +161,26 @@ class Message(object):
     def create_time_set(cls, time_tuple):
         message = struct.pack(cls.TIME_FORMAT, *time_tuple)
         return cls(cls.TIME_SET, message)
+
+    @classmethod
+    def create_topo_poll(cls):
+        return cls(cls.TOPO_POLL, "")
+
+    @classmethod
+    def create_topo_req(cls):
+        return cls(cls.TOPO_REQ, "")
+
+    @classmethod
+    def create_topo_flood(cls):
+        return cls(cls.TOPO_FLOOD, "")
+
+    @classmethod
+    def create_topo_ping(cls):
+        return cls(cls.TOPO_PING, "")
+
+    @classmethod
+    def create_topo_pong(cls):
+        return cls(cls.TOPO_PONG, "")
 
 
 class Mode(object):
