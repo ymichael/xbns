@@ -25,6 +25,12 @@ app:
 pong:
 	PYTHONPATH=. python app/pong.py --port=$(SERIALPORT)
 
+toporeq:
+	PYTHONPATH=. python app/pong.py -m toporeq --port=$(SERIALPORT)
+
+topoflood:
+	PYTHONPATH=. python app/pong.py -m topoflood --port=$(SERIALPORT)
+
 ping:
 	PYTHONPATH=. python app/pong.py -m ping --port=$(SERIALPORT)
 

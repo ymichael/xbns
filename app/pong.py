@@ -43,11 +43,10 @@ class Message(object):
     # Topology related messages.
     # 1. To get neighbours, node sends a TOPO_PING and keep tracks of the number
     #    of TOPO_PONG(s) received from various nodes.
-    # 2. To get network topology, initiate a TOPO_POLL, which causes each node to
+    # 2. To get network topology, initiate a TOPO_FLOOD, which causes each node to
     #    perform a TOPO_PING, receive local information about neighbours then
-    #    broadcast a TOPO_FLOOD with this information.
+    #    flood the network with this information.
     # 3. To get a particular node's topology information, send a TOPO_REQ.
-    TOPO_POLL =  5  # Initiates TOPO_FLOOD
     TOPO_REQ =   6  # Requests for topology information.
     TOPO_RES =   7  # Response for topology information.
     TOPO_FLOOD = 8  # Flood network with messages about local topology.
@@ -99,9 +98,6 @@ class Message(object):
     def is_pl_set(self):
         return self.msg_type == self.PL_SET
 
-    def is_topo_poll(self):
-        return self.msg_type == self.TOPO_POLL
-
     def is_topo_req(self):
         return self.msg_type == self.TOPO_REQ
 
@@ -124,8 +120,8 @@ class Message(object):
         if self.is_time_req(): return 'TIME_REQ'
         if self.is_time_set(): return 'TIME_SET'
         if self.is_pl_set(): return 'PL_SET'
-        if self.is_topo_poll(): return 'TOPO_POLL'
         if self.is_topo_req(): return 'TOPO_REQ'
+        if self.is_topo_res(): return 'TOPO_RES'
         if self.is_topo_flood(): return 'TOPO_FLOOD'
         if self.is_topo_ping(): return 'TOPO_PING'
         if self.is_topo_pong(): return 'TOPO_PONG'
@@ -183,10 +179,6 @@ class Message(object):
         return cls(cls.TIME_SET, message)
 
     @classmethod
-    def create_topo_poll(cls):
-        return cls(cls.TOPO_POLL, "")
-
-    @classmethod
     def create_topo_req(cls):
         return cls(cls.TOPO_REQ, "")
 
@@ -214,6 +206,8 @@ class Mode(object):
     PING = 'ping'
     TIME = 'time'
     POWER = 'power'
+    TOPO_REQ = 'toporeq'
+    TOPO_FLOOD = 'topoflood'
 
 
 class Pong(net.layers.application.Application):
@@ -243,19 +237,19 @@ class Pong(net.layers.application.Application):
         self._handle_incoming_inner(message, pdu.source_addr)
 
     def _handle_incoming_inner(self, message, sender_addr):
-        # Only handle incoming messages when run in normal mode.
-        if self.mode != Mode.NORMAL:
-            return
-
         if message.is_topo_req():
             self.send_topo_res_delayed()
+            self.send_topo_ping()
+
+        if message.is_topo_flood():
+            self.send_topo_flood_res_delayed()
             self.send_topo_ping()
 
         if message.is_topo_ping():
             self.send_topo_pong(sender_addr)
 
         if message.is_topo_pong() and message.recipient_addr == self.addr:
-            self.topo_pongs[time.time()] = sender_addr
+            self.topo_pongs[(time.time(), sender_addr)] = sender_addr
 
         if message.is_time_set():
             TimeSpec.set_time(message.time_tuple)
@@ -275,21 +269,41 @@ class Pong(net.layers.application.Application):
     def _get_neighbours(self):
         # Determine neighbours
         curr_t = time.time()
-        for t, addr in self.topo_pongs.iteritems():
+        for k in self.topo_pongs.keys():
+            t, addr = k
             if (curr_t - t) > 1.5:
-                del self.topo_pongs[t]
+                del self.topo_pongs[k]
         return set(self.topo_pongs.values())
+
+    def send_topo_req(self):
+        topo_req = Message.create_topo_req()
+        self._send_message(topo_req)
+
+    def send_topo_flood(self):
+        topo_flood = Message.create_topo_flood()
+        self._send_message(topo_flood, dest_addr=net.layers.base.FLOOD_ADDRESS)
 
     def send_topo_res_delayed(self):
         if self._topo_res_timer is not None:
             self._topo_res_timer.cancel()
-        self._topo_res_timer = threading.Timer(.5, self.send_topo_res())
+        self._topo_res_timer = threading.Timer(.5, self.send_topo_res)
         self._topo_res_timer.start()
 
     def send_topo_res(self):
         time.sleep(.5)
         topo_res = Message.create_topo_res(self._get_neighbours())
         self._send_message(topo_res)
+
+    def send_topo_flood_res_delayed(self):
+        if self._topo_res_timer is not None:
+            self._topo_res_timer.cancel()
+        self._topo_res_timer = threading.Timer(.5, self.send_topo_flood_res)
+        self._topo_res_timer.start()
+
+    def send_topo_flood_res(self):
+        time.sleep(.5)
+        topo_res = Message.create_topo_res(self._get_neighbours())
+        self._send_message(topo_res, dest_addr=net.layers.base.FLOOD_ADDRESS)
 
     def send_topo_pong(self, addr):
         topo_pong = Message.create_topo_pong(addr)
@@ -339,10 +353,12 @@ def main(args):
         if args.mode == Mode.PING:
             app.send_ping()
             time.sleep(1)
-        elif args.mode == Mode.TIME:
+
+        if args.mode == Mode.TIME:
             app.send_time_set()
             time.sleep(5)
-        elif args.mode == Mode.POWER:
+
+        if args.mode == Mode.POWER:
             if once:
                 app.send_pl_set(args.value)
                 once = False
@@ -350,13 +366,22 @@ def main(args):
                 app.send_ping()
             time.sleep(1)
 
+        if args.mode == Mode.TOPO_REQ:
+            app.send_topo_req()
+            time.sleep(1)
+
+        if args.mode == Mode.TOPO_FLOOD:
+            app.send_topo_flood()
+            time.sleep(2)
+
         time.sleep(1)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Pong Application')
     parser.add_argument('--mode', '-m', type=str, default=Mode.NORMAL,
-                        choices=[Mode.NORMAL, Mode.PING, Mode.TIME, Mode.POWER])
+                        choices=[Mode.NORMAL, Mode.PING, Mode.TIME, Mode.POWER,
+                            Mode.TOPO_REQ, Mode.TOPO_FLOOD])
     parser.add_argument('--value', type=int, default=4, choices=[0,1,2,3,4])
     parser.add_argument('-s', '--port', default='/dev/ttyUSB0',
                         help='Serial port')
