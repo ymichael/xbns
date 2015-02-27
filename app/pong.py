@@ -6,6 +6,7 @@ import net.layers.application
 import net.layers.base
 import net.layers.transport
 import struct
+import threading
 import time
 
 
@@ -48,26 +49,34 @@ class Message(object):
     # 3. To get a particular node's topology information, send a TOPO_REQ.
     TOPO_POLL =  5  # Initiates TOPO_FLOOD
     TOPO_REQ =   6  # Requests for topology information.
-    TOPO_FLOOD = 7  # Flood network with messages about local topology.
-    TOPO_PING =  8  # Broadcasts a ping to get neighbour information.
-    TOPO_PONG =  9  # Responds to neighbours TOPO_PING
+    TOPO_RES =   7  # Response for topology information.
+    TOPO_FLOOD = 8  # Flood network with messages about local topology.
+    TOPO_PING =  9  # Broadcasts a ping to get neighbour information.
+    TOPO_PONG =  10  # Responds to neighbours TOPO_PING
 
     TIME_FORMAT = "HBBBBBH"
     PL_FORMAT = "H"
+    TOPO_PONG_FORMAT = "H"
 
     def __init__(self, msg_type, message):
         self.msg_type = msg_type
         self.message = message
-
-        if self.is_pong():
-            self._init_pong()
-        if self.is_time_set():
-            self._init_time_set()
-        if self.is_pl_set():
-            self._init_pl_set()
+        if self.is_pong(): self._init_pong()
+        if self.is_time_set(): self._init_time_set()
+        if self.is_pl_set(): self._init_pl_set()
+        if self.is_topo_pong(): self._init_topo_pong()
+        if self.is_topo_res(): self._init_topo_res()
 
     def _init_pong(self):
         self.time_tuple = struct.unpack(self.TIME_FORMAT, self.message)
+
+    def _init_topo_pong(self):
+        self.recipient_addr = \
+            struct.unpack(self.TOPO_PONG_FORMAT, self.message)[0]
+
+    def _init_topo_res(self):
+        self.neighbours = \
+            struct.unpack('B' * len(self.message), self.message)
 
     def _init_time_set(self):
         self.time_tuple = struct.unpack(self.TIME_FORMAT, self.message)
@@ -96,6 +105,9 @@ class Message(object):
     def is_topo_req(self):
         return self.msg_type == self.TOPO_REQ
 
+    def is_topo_res(self):
+        return self.msg_type == self.TOPO_RES
+
     def is_topo_flood(self):
         return self.msg_type == self.TOPO_FLOOD
 
@@ -121,7 +133,15 @@ class Message(object):
     def __repr__(self):
         if self.is_pong(): return self._repr_pong()
         if self.is_time_set(): return self._repr_time_set()
+        if self.is_topo_pong(): return self._repr_topo_pong()
+        if self.is_topo_res(): return self._repr_topo_res()
         return "%6s" % self.type
+
+    def _repr_topo_pong(self):
+        return "%6s, %s" % (self.type, self.recipient_addr)
+
+    def _repr_topo_res(self):
+        return "%6s, %s" % (self.type, self.neighbours)
 
     def _repr_pong(self):
         return "%6s, %s" % (self.type, self.time_tuple)
@@ -171,6 +191,11 @@ class Message(object):
         return cls(cls.TOPO_REQ, "")
 
     @classmethod
+    def create_topo_res(cls, neighbours):
+        message = struct.pack("B" * len(neighbours), *neighbours)
+        return cls(cls.TOPO_RES, message)
+
+    @classmethod
     def create_topo_flood(cls):
         return cls(cls.TOPO_FLOOD, "")
 
@@ -179,8 +204,9 @@ class Message(object):
         return cls(cls.TOPO_PING, "")
 
     @classmethod
-    def create_topo_pong(cls):
-        return cls(cls.TOPO_PONG, "")
+    def create_topo_pong(cls, recipient_addr):
+        message = struct.pack(cls.TOPO_PONG_FORMAT, recipient_addr)
+        return cls(cls.TOPO_PONG, message)
 
 
 class Mode(object):
@@ -198,6 +224,11 @@ class Pong(net.layers.application.Application):
         super(Pong, self).__init__(addr)
         self.mode = None
         self.xbee = None
+        self.topo_pongs = {}
+
+        # Timers
+        self._topo_res_timer = None
+        self._topo_flood_timer = None
 
     def set_xbee(self, xbee):
         self.xbee = xbee
@@ -209,12 +240,22 @@ class Pong(net.layers.application.Application):
         pdu = net.layers.transport.TransportPDU.from_string(data)
         message = Message.from_string(pdu.message)
         self.log("Received message from %3s: %s" % (pdu.source_addr, repr(message)))
-        self._handle_incoming_inner(message)
+        self._handle_incoming_inner(message, pdu.source_addr)
 
-    def _handle_incoming_inner(self, message):
+    def _handle_incoming_inner(self, message, sender_addr):
         # Only handle incoming messages when run in normal mode.
         if self.mode != Mode.NORMAL:
             return
+
+        if message.is_topo_req():
+            self.send_topo_res_delayed()
+            self.send_topo_ping()
+
+        if message.is_topo_ping():
+            self.send_topo_pong(sender_addr)
+
+        if message.is_topo_pong() and message.recipient_addr == self.addr:
+            self.topo_pongs[time.time()] = sender_addr
 
         if message.is_time_set():
             TimeSpec.set_time(message.time_tuple)
@@ -230,6 +271,33 @@ class Pong(net.layers.application.Application):
             if self.xbee is not None:
                 self.xbee.set_power_level(message.power_level)
             self.send_pong()
+
+    def _get_neighbours(self):
+        # Determine neighbours
+        curr_t = time.time()
+        for t, addr in self.topo_pongs.iteritems():
+            if (curr_t - t) > 1.5:
+                del self.topo_pongs[t]
+        return set(self.topo_pongs.values())
+
+    def send_topo_res_delayed(self):
+        if self._topo_res_timer is not None:
+            self._topo_res_timer.cancel()
+        self._topo_res_timer = threading.Timer(.5, self.send_topo_res())
+        self._topo_res_timer.start()
+
+    def send_topo_res(self):
+        time.sleep(.5)
+        topo_res = Message.create_topo_res(self._get_neighbours())
+        self._send_message(topo_res)
+
+    def send_topo_pong(self, addr):
+        topo_pong = Message.create_topo_pong(addr)
+        self._send_message(topo_pong)
+
+    def send_topo_ping(self):
+        topo_ping = Message.create_topo_ping()
+        self._send_message(topo_ping)
 
     def send_ping(self):
         ping = Message.create_ping()
