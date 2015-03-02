@@ -1,7 +1,8 @@
 import config
-import Queue as queue
 import logging
 import logging.handlers
+import Queue as queue
+import sys
 import threading
 
 # 65535 => \xff\xff
@@ -23,7 +24,7 @@ class BaseLayer(object):
         self.logger.setLevel(logging.DEBUG)
         if len(self.logger.handlers) == 0:
             formatter = logging.Formatter("%(name)s - %(levelname)s - %(asctime)s: %(message)s")
-            stream_handler = logging.StreamHandler()
+            stream_handler = logging.StreamHandler(sys.stdout)
             stream_handler.setFormatter(formatter)
             self.logger.addHandler(stream_handler)
             if config.SHOULD_LOG:
