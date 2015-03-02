@@ -16,6 +16,8 @@ PROTOCOLS = {
     'deluge': app.deluge.Deluge,
     'rateless': app.rateless_deluge.RatelessDeluge,
     'pong': app.pong.Pong,
+    'toporeq': app.pong.Pong,
+    'topoflood': app.pong.Pong,
 }
 
 
@@ -56,16 +58,22 @@ def main(args):
 
     if args.protocol == 'pong':
         for addr in args.seed:
-            # TODO. This should be a generic method that works for every protocol.
             nodes[addr].get_application(APP_CLS.ADDRESS).send_ping()
             nodes[addr].get_application(APP_CLS.ADDRESS).send_time_set()
+
+    if args.protocol == 'toporeq':
+        for addr in args.seed:
+            nodes[addr].get_application(APP_CLS.ADDRESS).send_topo_req()
+
+    if args.protocol == 'topoflood':
+        for addr in args.seed:
+            nodes[addr].get_application(APP_CLS.ADDRESS).send_topo_flood()
 
     if args.protocol == 'deluge' or args.protocol == 'rateless':
         # Read file and seed in the network.
         data = args.file.read()
         args.file.close()
         for addr in args.seed:
-            # TODO. This should be a generic method that works for every protocol.
             nodes[addr].get_application(APP_CLS.ADDRESS).new_version(1, data)
 
     # Don't terminate.
