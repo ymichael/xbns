@@ -34,7 +34,7 @@ https://www.digitalocean.com/community/tutorials/how-to-set-up-ssh-keys--2
 
 ```
 # my public key is called bone.pub
-cat ~/.ssh/bone.pub | ssh michael@bone "mkdir -p ~/.ssh && cat >>  ~/.ssh/authorized_keys"
+cat ~/.ssh/bone.pub | ssh michael@192.168.7.2 "mkdir -p ~/.ssh && cat >>  ~/.ssh/authorized_keys"
 ```
 
 4. copy code over.
@@ -48,7 +48,7 @@ make rsync
 ssh michael@bone "echo 5 > ~/xbns/addr.txt"
 ```
 
-6. add services
+6. add services (`make setup`)
 ```
 # ssh-ed into device.
 # Copy file

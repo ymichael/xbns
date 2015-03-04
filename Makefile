@@ -1,4 +1,4 @@
-.PHONY: start port rsync rmpyc rsync-makefile sim test app pong ping deluge rateless settime clearlogs setpower logs
+.PHONY: start port rsync rmpyc rsync-makefile sim test app pong ping deluge rateless settime clearlogs setpower logs setup
 
 rmpyc:
 	find . | grep -v .venv | grep .pyc | xargs rm
@@ -60,6 +60,9 @@ test:
 
 clearlogs:
 	rm log/*
+
+setup:
+	./bin/setup.sh
 
 # rsync repository with beaglebone (w/o makefile)
 rsync:
