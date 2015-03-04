@@ -1,4 +1,7 @@
-.PHONY: start port rsync rmpyc rsync-makefile sim test app pong ping deluge rateless settime clearlogs setpower logs setup
+.PHONY: start port rsync rmpyc rsync-makefile sim test app pong ping deluge rateless settime clearlogs setpower logs setup setaddr
+
+setaddr:
+	ssh michael@bone "echo $(ADDR) > ~/xbns/addr.txt"
 
 rmpyc:
 	find . | grep -v .venv | grep .pyc | xargs rm

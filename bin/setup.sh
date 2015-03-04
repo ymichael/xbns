@@ -10,9 +10,10 @@ install () {
     # Remove and uninstall the service (if exists).
     systemctl stop $1
     systemctl disable $1
+    rm /lib/systemd/system/$1
 
     # Install the service.
-    ln -s /home/michael/xbns/bin/$1 /etc/systemd/system/
+    cp /home/michael/xbns/bin/$1 /lib/systemd/system/
     systemctl enable $1
 
     # Start the service and output the status
