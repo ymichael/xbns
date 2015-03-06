@@ -137,7 +137,7 @@ class Deluge(net.layers.application.Application):
     PACKETS_PER_PAGE = PAGE_SIZE / PACKET_SIZE
 
     # Bounds for the length of each round.
-    T_MIN = .5
+    T_MIN = 1
     T_MAX = 60 * 10 # 10 minutes
 
     #########################
@@ -322,8 +322,10 @@ class Deluge(net.layers.application.Application):
         if self.state == self.STATE_CLS.MAINTAIN:
             self._round_maintain()
         elif self.state == self.STATE_CLS.RX:
+            self._set_inconsistent()
             self._round_rx()
         elif self.state == self.STATE_CLS.TX:
+            self._set_inconsistent()
             self._round_tx()
 
     def _round_maintain(self):
