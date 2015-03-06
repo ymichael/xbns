@@ -263,7 +263,8 @@ class Pong(net.layers.application.Application):
         if message.is_topo_pong() and message.recipient_addr == self.addr:
             self.topo_pongs[(time.time(), sender_addr)] = sender_addr
 
-        if message.is_time_set():
+        # Only set time in NORMAL mode.
+        if message.is_time_set() and self.mode == Mode.NORMAL:
             TimeSpec.set_time(message.time_tuple)
             self._time_is_set = True
             self.send_pong()
