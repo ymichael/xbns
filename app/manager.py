@@ -1,6 +1,7 @@
 import argparse
 import deluge
 import net.layers.application
+import net.layers.base
 import net.layers.transport
 import pickle
 import rateless_deluge
@@ -210,15 +211,10 @@ class Manager(net.layers.application.Application):
         protocol.K = self.K
         protocol._reset_round_state()
 
-    def start(self, version, data):
-        if self.mode == Mode.NORMAL_MODE:
-            active = self.apps[self.PROTOCOL]
-            active.new_version(version, data, force=True, start=False)
-            active._start_next_round(self.DELAY)
-        elif self.mode == Mode.CONTROL_MODE:
-            self._send_ctrl()
-        elif self.mode == Mode.LISTEN_MODE:
-            self._send_ping()
+    def start_normal(self, version, data):
+        active = self.apps[self.PROTOCOL]
+        active.new_version(version, data, force=True, start=False)
+        active._start_next_round(self.DELAY)
 
     def _send_ctrl(self):
         ctrl = ManagerPDU.create_ctrl_packet(
@@ -229,17 +225,19 @@ class Manager(net.layers.application.Application):
             t_min=self.T_MIN,
             t_max=self.T_MAX,
             delay=self.DELAY)
-        self._send_pdu(ctrl)
+        self._send_pdu(ctrl, dest_addr=net.layers.base.FLOOD_ADDRESS)
 
     def _send_ack(self):
-        self._send_pdu(ManagerPDU.create_ack_packet())
+        ack = ManagerPDU.create_ack_packet()
+        self._send_pdu(ack, dest_addr=net.layers.base.FLOOD_ADDRESS)
 
     def _send_ping(self):
-        self._send_pdu(ManagerPDU.create_ping_packet())
+        ping = ManagerPDU.create_ping_packet()
+        self._send_pdu(ping, dest_addr=net.layers.base.FLOOD_ADDRESS)
 
-    def _send_pdu(self, data_unit):
+    def _send_pdu(self, data_unit, dest_addr=None):
         self._log_send_pdu(data_unit)
-        self.send(data_unit.to_string())
+        self._send(data_unit.to_string(), dest_addr=dest_addr)
 
     def log(self, message):
         prefix = "(%2s, %s, %s/%s, k = %s, t_min = %s, t_max = %s, delay = %s)" % \
@@ -270,9 +268,14 @@ def main(args):
     # Start.
     seed_data = args.file.read()
     args.file.close()
-    manager.start(args.version, seed_data)
+    if self.mode == Mode.NORMAL_MODE:
+        manager.start_normal(args.version, seed_data)
 
     while True:
+        if self.mode == Mode.CONTROL_MODE:
+            self._send_ctrl()
+        if self.mode == Mode.LISTEN_MODE:
+            self._send_ping()
         time.sleep(1)
 
 
