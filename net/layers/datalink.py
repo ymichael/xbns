@@ -80,8 +80,12 @@ class DataLink(base.BaseLayer):
     def _handle_incoming(self, args):
         # NOTE: Sender is the node that sent the packet we are receiving.
         # Source is the node where the packet originated from.
-        data, sender_addr = args
-        data_unit = DataLinkPDU.from_string(data)
+        try:
+            data, sender_addr = args
+            data_unit = DataLinkPDU.from_string(data)
+        except Exception as e:
+            self.logger.error(str(e))
+            return
 
         # Ignore packet if we are the source
         if self.addr == data_unit.source_addr:
