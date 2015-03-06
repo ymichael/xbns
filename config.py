@@ -3,10 +3,10 @@
 #
 
 # Channel ID: [11, 26]
-CHANNEL = 12
+CHANNEL = 14
 
 # PAN ID: 64 bits
-PANID = 0xabdd
+PANID = 0xdcaa
 
 def get_addr():
     with open ("addr.txt", "r") as f:
