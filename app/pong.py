@@ -23,11 +23,14 @@ class TimeSpec(ctypes.Structure):
 
     @staticmethod
     def set_time(time_tuple):
-        librt = ctypes.CDLL(ctypes.util.find_library("rt"))
-        ts = TimeSpec()
-        ts.tv_sec = int(time.mktime(datetime.datetime(*time_tuple[:6]).timetuple()))
-        ts.tv_nsec = time_tuple[6] * 1000000
-        librt.clock_settime(0, ctypes.byref(ts))
+        try:
+            librt = ctypes.CDLL(ctypes.util.find_library("rt"))
+            ts = TimeSpec()
+            ts.tv_sec = int(time.mktime(datetime.datetime(*time_tuple[:6]).timetuple()))
+            ts.tv_nsec = time_tuple[6] * 1000000
+            librt.clock_settime(0, ctypes.byref(ts))
+        except Exception, e:
+            print str(e)
 
 
 class Message(object):
@@ -264,7 +267,7 @@ class Pong(net.layers.application.Application):
             self.topo_pongs[(time.time(), sender_addr)] = sender_addr
 
         # Only set time in NORMAL mode.
-        if message.is_time_set() and self.mode == Mode.NORMAL:
+        if message.is_time_set():
             TimeSpec.set_time(message.time_tuple)
             self._time_is_set = True
             self.send_pong_flood()
