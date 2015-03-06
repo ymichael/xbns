@@ -267,7 +267,7 @@ class Pong(net.layers.application.Application):
         if message.is_time_set() and self.mode == Mode.NORMAL:
             TimeSpec.set_time(message.time_tuple)
             self._time_is_set = True
-            self.send_pong()
+            self.send_pong_flood()
 
         if message.is_time_req():
             self.send_time_set()
@@ -350,6 +350,10 @@ class Pong(net.layers.application.Application):
     def send_pong(self):
         pong = Message.create_pong(TimeSpec.get_current_time())
         self._send_message(pong)
+
+    def send_pong_flood(self):
+        pong = Message.create_pong(TimeSpec.get_current_time())
+        self._send_message(pong, dest_addr=net.layers.base.FLOOD_ADDRESS)
 
     def send_time_set(self):
         time_set = Message.create_time_set(TimeSpec.get_current_time())
