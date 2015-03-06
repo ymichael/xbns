@@ -14,7 +14,7 @@ class TransportPDU(object):
     # dest port: H
     # dest addr: H
     HEADER_FORMAT = "HHHH"
-    HEADER_SIZE = struct.calcsize(HEADER_FORMAT)
+    HEADER_SIZE = struct.calcsize(HEADER_FORMAT) # 8 bytes
 
     def __init__(self, message, source_port, source_addr, dest_port, dest_addr):
         self.message = message

@@ -15,12 +15,12 @@ class DelugePDU(object):
     # 2 - REQ
     # 3 - DATA
     HEADER_PREFIX = "B"
-    HEADER_PREFIX_SIZE = struct.calcsize(HEADER_PREFIX)
+    HEADER_PREFIX_SIZE = struct.calcsize(HEADER_PREFIX) # 1 byte
 
     # I: unsigned int
     # version, page_number, packet_number
     DATA_HEADER = "III"
-    DATA_HEADER_SIZE = struct.calcsize(DATA_HEADER)
+    DATA_HEADER_SIZE = struct.calcsize(DATA_HEADER) # 12 bytes
 
     # version, page_number
     REQ_HEADER = "HII"
@@ -132,8 +132,9 @@ class DelugeState(object):
 class Deluge(net.layers.application.Application):
     ADDRESS = ("", 11002)
 
-    PAGE_SIZE = 1024
-    PACKET_SIZE = 64
+    PAGE_SIZE = 1020
+    # 100 (frame size) - 16 (datalink) - 8 (transport) - 1 (PDU) - 12 (DATA HEADER) = 63
+    PACKET_SIZE = 60
     PACKETS_PER_PAGE = PAGE_SIZE / PACKET_SIZE
 
     # Bounds for the length of each round.

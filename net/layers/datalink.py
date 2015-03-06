@@ -16,7 +16,7 @@ class DataLinkPDU(object):
     # B: unsigned char, 1 byte.
     # H: unsigned short, 2 bytes.
     # I: unsigned int, 4 bytes.
-    HEADER_SIZE = struct.calcsize(HEADER_FORMAT)
+    HEADER_SIZE = struct.calcsize(HEADER_FORMAT) # 16 bytes
 
     # Max payload size: 100
     # Source: http://www.digi.com/support/kbase/kbaseresultdetl?id=3345

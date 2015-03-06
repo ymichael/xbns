@@ -298,9 +298,9 @@ if __name__ == '__main__':
                         help='The lower bound for the round window length, in seconds.')
     config.add_argument('--tmax', type=float, default=60 * 10,
                         help='The upper bound for the round window length, in seconds.')
-    config.add_argument('--pagesize', type=int, default=1024,
+    config.add_argument('--pagesize', type=int, default=1020,
                         help='The number of bytes in each page.')
-    config.add_argument('--packetsize', type=int, default=64,
+    config.add_argument('--packetsize', type=int, default=60,
                         help='The number of bytes in each packet.')
     config.add_argument('--delay', type=int, default=3,
                         help='The number of seconds to wait before starting the protocol.')

@@ -7,6 +7,11 @@ import struct
 
 
 # TODO: Fix this circular dependency.
+deluge.Deluge.PAGE_SIZE = 900
+# 100 (frame size) - 16 (datalink) - 8 (transport) - 1 (PDU) - 8 (DATA HEADER) = 67
+# - 20 (matrix coeffs) = 47
+deluge.Deluge.PACKET_SIZE = 45
+deluge.Deluge.PACKETS_PER_PAGE = deluge.Deluge.PAGE_SIZE / deluge.Deluge.PACKET_SIZE
 ROWS_REQUIRED = deluge.Deluge.PACKETS_PER_PAGE
 
 
@@ -54,6 +59,8 @@ class RatelessDelugePDU(deluge.DelugePDU):
 
 class RatelessDeluge(deluge.Deluge):
     ADDRESS = ("", 11003)
+
+
 
     PDU_CLS = RatelessDelugePDU
 
