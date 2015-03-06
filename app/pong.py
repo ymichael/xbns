@@ -214,11 +214,18 @@ class Pong(net.layers.application.Application):
     """Collection of utilities for managing the Beaglebone."""
     ADDRESS = ("", 11004)
 
+    TIME_REQ_MAX_RETRIES = 5
+
     def __init__(self, addr):
         super(Pong, self).__init__(addr)
         self.mode = None
         self.xbee = None
         self.topo_pongs = {}
+
+        # Time set.
+        self._time_is_set = False
+        self._time_reqs_sent = 0
+        self._time_req_timer = None
 
         # Timers
         self._topo_res_timer = None
@@ -229,6 +236,11 @@ class Pong(net.layers.application.Application):
 
     def set_mode(self, mode):
         self.mode = mode
+        if self.mode is Mode.NORMAL:
+            self.start_normal()
+
+    def start_normal(self):
+        self.send_time_req_delayed()
 
     def _handle_incoming(self, data):
         pdu = net.layers.transport.TransportPDU.from_string(data)
@@ -253,6 +265,7 @@ class Pong(net.layers.application.Application):
 
         if message.is_time_set():
             TimeSpec.set_time(message.time_tuple)
+            self._time_is_set = True
             self.send_pong()
 
         if message.is_time_req():
@@ -305,6 +318,22 @@ class Pong(net.layers.application.Application):
         topo_res = Message.create_topo_res(self._get_neighbours())
         self._send_message(topo_res, dest_addr=net.layers.base.FLOOD_ADDRESS)
 
+    def send_time_req_delayed(self):
+        if self._time_req_timer is not None:
+            self._time_req_timer.cancel()
+        self._time_req_timer = threading.Timer(2, self.send_time_req)
+        self._time_req_timer.start()
+
+    def send_time_req(self):
+        if self._time_is_set:
+            return
+        self._time_reqs_sent += 1
+        time_req = Message.create_time_req()
+        self._send_message(time_req)
+
+        if self._time_reqs_sent < self.TIME_REQ_MAX_RETRIES:
+            self.send_time_req_delayed()
+
     def send_topo_pong(self, addr):
         topo_pong = Message.create_topo_pong(addr)
         self._send_message(topo_pong)
@@ -348,7 +377,6 @@ def main(args):
     app.set_xbee(xbee_radio)
 
     once = True
-
     while True:
         if args.mode == Mode.PING:
             app.send_ping()
