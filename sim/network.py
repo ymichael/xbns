@@ -34,7 +34,7 @@ class Network(threading.Thread):
             if not self.should_drop_packet(data, sender):
                 self.nodes[dest].incoming_buffer.put(frame)
             else:
-                print 'PACKET DROPPED.'
+                print 'FRAME DROPPED.'
 
     def should_drop_packet(self, data, sender):
         # TODO: Make use of the data and sender args.
