@@ -4,6 +4,7 @@ import deluge
 import itertools
 import random
 import struct
+import time
 
 
 # TODO: Fix this circular dependency.
@@ -119,6 +120,8 @@ class RatelessDeluge(deluge.Deluge):
                 data = self.PDU_CLS.create_data_packet(
                     self.version, page, list(coeffs.iter_row(0)), list(coded_data.iter_row(0)))
                 self._send_pdu(data)
+                # Sleep for a short amount of time.
+                time.sleep(.02)
         self._pending_datas = {}
         self._change_state(self.STATE_CLS.MAINTAIN)
 

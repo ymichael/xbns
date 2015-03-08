@@ -412,6 +412,8 @@ class Deluge(net.layers.application.Application):
                 self.version, page, packet,
                 self.complete_pages[page][packet])
             self._send_pdu(data)
+            # Sleep for a short amount of time.
+            time.sleep(.02)
         self._change_state(self.STATE_CLS.MAINTAIN)
 
     def _handle_incoming(self, data):
@@ -486,8 +488,9 @@ class Deluge(net.layers.application.Application):
                 self._enter_rx(sender_addr)
 
         # Network is inconsistent.
-        self._set_inconsistent()
-        self._start_next_round(delay=0)
+        if self.state == self.STATE_CLS.MAINTAIN:
+            self._set_inconsistent()
+            self._start_next_round(delay=0)
 
     def _process_req(self, data_unit):
         # React to REQ, transit to TX state if we have the requested page.
@@ -502,6 +505,9 @@ class Deluge(net.layers.application.Application):
             for packet in data_unit.packets:
                 self._pending_datas.add((data_unit.page_number, packet))
             self._start_next_round(delay=0)
+        elif self.state == self.STATE_CLS.TX:
+            for packet in data_unit.packets:
+                self._pending_datas.add((data_unit.page_number, packet))
 
     def _process_data(self, data_unit):
         # Remove from pending DATA if applicable.
