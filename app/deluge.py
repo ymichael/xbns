@@ -145,11 +145,11 @@ class Deluge(net.layers.application.Application):
     # REQ related parameters.
     ########################
     # Send REQ after random delay between [0, T_R]
-    T_R = .25
+    T_R = .5
     # Packet Transmission time.
     T_TX = .2
     # Number of T_TX to wait before sending another REQ.
-    W = 8
+    W = 10
     # Max number of REQ to send before returning to MAINTAIN state. (lamda in
     # the paper.)
     RX_MAX = 2
@@ -257,6 +257,9 @@ class Deluge(net.layers.application.Application):
         # Number of REQ/DATA overheard
         self.req_and_data_overheard = 0
 
+        # Number of REQ/DATA overheard in the previous W*TX + r
+        self.req_and_data_overheard_buffer = 0
+
         # DATA rate in the RX state (to determine if we should exit RX state)
         self._rx_data_rate = 0
 
@@ -310,9 +313,10 @@ class Deluge(net.layers.application.Application):
 
     def _round(self):
         # Reset round state.
-        self.req_and_data_overheard = 0
         self.adv_overheard = 0
         self.round_number += 1
+        self.req_and_data_overheard_buffer = self.req_and_data_overheard
+        self.req_and_data_overheard = 0
         self.rounds_in_state += 1
         self._req_for_page_less_than_curr_page_buffer = \
             self._req_for_page_less_than_curr_page
@@ -372,7 +376,8 @@ class Deluge(net.layers.application.Application):
         self._send_req_timer.start()
 
     def _send_req(self):
-        if self.req_and_data_overheard or self._page_to_req is None:
+        if self.req_and_data_overheard_buffer or \
+                self.req_and_data_overheard or self._page_to_req is None:
             self.log("Suppressed REQ")
             return
         self._rx_num_sent += 1
@@ -470,15 +475,15 @@ class Deluge(net.layers.application.Application):
             # M5: transit to RX unless, a REQ for a page we can fulfill was
             # overheard within the last 2 rounds OR a DATA for a page we want/
             # can fulfil was overheard in the last round.
-            if self._data_for_next_page_or_less_overheard or \
-                    self._req_for_page_less_than_curr_page or \
-                    self._req_for_page_less_than_curr_page_buffer:
-                self.log("SUPPRESS TRANSITION INTO RX. %s, %s, %s" % \
-                    (self._data_for_next_page_or_less_overheard, self._req_for_page_less_than_curr_page,
-                        self._req_for_page_less_than_curr_page_buffer))
-            else:
-                if self.state == self.STATE_CLS.MAINTAIN:
-                    self._enter_rx(sender_addr)
+            if self.state == self.STATE_CLS.MAINTAIN:
+                if self._data_for_next_page_or_less_overheard or \
+                        self._req_for_page_less_than_curr_page or \
+                        self._req_for_page_less_than_curr_page_buffer:
+                    self.log("SUPPRESS TRANSITION INTO RX. %s, %s, %s" % \
+                        (self._data_for_next_page_or_less_overheard, self._req_for_page_less_than_curr_page,
+                            self._req_for_page_less_than_curr_page_buffer))
+                    return
+                self._enter_rx(sender_addr)
 
         # Network is inconsistent.
         self._set_inconsistent()
