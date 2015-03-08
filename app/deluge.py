@@ -486,6 +486,9 @@ class Deluge(net.layers.application.Application):
                             self._req_for_page_less_than_curr_page_buffer))
                     return
                 self._enter_rx(sender_addr)
+                self._set_inconsistent()
+                self._start_next_round(delay=0)
+                return
 
         # Network is inconsistent.
         if self.state == self.STATE_CLS.MAINTAIN:
