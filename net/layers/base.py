@@ -29,7 +29,7 @@ class BaseLayer(object):
             self.logger.addHandler(stream_handler)
             if config.SHOULD_LOG:
                 file_handler = logging.handlers.RotatingFileHandler(
-                    config.LOG_FILE_NAME, backupCount=5, maxBytes=2097152)
+                    config.LOG_FILE_NAME, backupCount=20, maxBytes=5242880)
                 file_handler.setFormatter(formatter)
                 self.logger.addHandler(file_handler)
         self.logger.info("Starting up.")
