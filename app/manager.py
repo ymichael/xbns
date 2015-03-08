@@ -54,12 +54,14 @@ class ManagerPDU(object):
     def __init_ctrl(self):
         x = pickle.loads(self.message)
         self.protocol = x[0]
-        self.page_size = x[1]
-        self.packet_size = x[2]
-        self.k = x[3]
-        self.t_min = x[4]
-        self.t_max = x[5]
-        self.delay = x[6]
+        self.d_page_size = x[1]
+        self.d_packet_size = x[2]
+        self.r_page_size = x[3]
+        self.r_packet_size = x[4]
+        self.k = x[5]
+        self.t_min = x[6]
+        self.t_max = x[7]
+        self.delay = x[8]
 
     def is_ctrl(self):
         return self.msg_type == self.CTRL
@@ -94,20 +96,27 @@ class ManagerPDU(object):
         return self.type
 
     def _repr_ctrl(self):
-        return "%4s, %s, %s/%s, k = %s, t_min = %s, t_max = %s, delay = %s" % \
-            (self.type, Protocol.get_name(self.protocol), self.page_size,
-                    self.packet_size, self.k, self.t_min, self.t_max, self.delay)
+        return "%4s, %s, d = %s/%s, r = %s/%s k = %s, t_min = %s, t_max = %s, delay = %s" % \
+            (self.type, Protocol.get_name(self.protocol),
+                self.d_page_size, self.d_packet_size,
+                self.r_page_size, self.r_packet_size,
+                self.k, self.t_min, self.t_max, self.delay)
 
     @classmethod
     def create_ctrl_packet(cls,
             protocol=Protocol.DELUGE,
-            page_size=1024, packet_size=64,
+            d_page_size=1020, d_packet_size=60,
+            r_page_size=900, r_packet_size=45,
             k=1, t_min=1, t_max=60 * 10, delay=5):
-        assert page_size % packet_size == 0
+        assert d_page_size % d_packet_size == 0
+        assert r_page_size % r_packet_size == 0
         assert t_min <= t_max
         assert protocol < len(Protocol.NAMES)
         message = pickle.dumps(
-            [protocol, page_size, packet_size, k, t_min, t_max, delay])
+            [protocol,
+                d_page_size, d_packet_size,
+                r_page_size, r_packet_size,
+                k, t_min, t_max, delay])
         return cls(cls.CTRL, message)
 
     @classmethod
@@ -182,34 +191,51 @@ class Manager(net.layers.application.Application):
 
     def _update_ctrl_parameters(self, data_unit):
         self.PROTOCOL = data_unit.protocol
-        self.PAGE_SIZE = data_unit.page_size
-        self.PACKET_SIZE = data_unit.packet_size
-        self.PACKETS_PER_PAGE = self.PAGE_SIZE / self.PACKET_SIZE
+
+        self.D_PAGE_SIZE = data_unit.d_page_size
+        self.D_PACKET_SIZE = data_unit.d_packet_size
+        self.D_PACKETS_PER_PAGE = self.D_PAGE_SIZE / self.D_PACKET_SIZE
+
+        self.R_PAGE_SIZE = data_unit.r_page_size
+        self.R_PACKET_SIZE = data_unit.r_packet_size
+        self.R_PACKETS_PER_PAGE = self.R_PAGE_SIZE / self.R_PACKET_SIZE
+
         self.K = data_unit.k
         self.T_MIN = data_unit.t_min
         self.T_MAX = data_unit.t_max
         self.DELAY = data_unit.delay
 
         # Update the two protocols.
-        self._update_protocol(self.deluge)
-        self._update_protocol(self.rateless)
+        self._update_deluge()
+        self._update_rateless()
 
-        # TMP.
-        rateless_deluge.ROWS_REQUIRED = self.PACKETS_PER_PAGE
-        self.rateless.PDU_CLS.DATA_FORMAT = "II" + ("B" * self.PACKETS_PER_PAGE) + \
-            ("B" * self.PACKET_SIZE)
+    def _update_deluge(self):
+        self.deluge.stop()
+        data = self.deluge.get_data()
+        self.deluge.PAGE_SIZE = self.D_PAGE_SIZE
+        self.deluge.PACKET_SIZE = self.D_PACKET_SIZE
+        self.deluge.PACKETS_PER_PAGE = self.D_PACKETS_PER_PAGE
+        self.deluge.new_version(1, data, force=True, start=False)
+        self.deluge.T_MIN = self.T_MIN
+        self.deluge.T_MAX = self.T_MAX
+        self.deluge.K = self.K
+        self.deluge._reset_round_state()
 
-    def _update_protocol(self, protocol):
-        protocol.stop()
-        data = protocol.get_data()
-        protocol.PAGE_SIZE = self.PAGE_SIZE
-        protocol.PACKET_SIZE = self.PACKET_SIZE
-        protocol.PACKETS_PER_PAGE = self.PACKETS_PER_PAGE
-        protocol.new_version(1, data, force=True, start=False)
-        protocol.T_MIN = self.T_MIN
-        protocol.T_MAX = self.T_MAX
-        protocol.K = self.K
-        protocol._reset_round_state()
+    def _update_rateless(self):
+        self.rateless.stop()
+        data = self.rateless.get_data()
+        self.rateless.PAGE_SIZE = self.R_PAGE_SIZE
+        self.rateless.PACKET_SIZE = self.R_PACKET_SIZE
+        self.rateless.PACKETS_PER_PAGE = self.R_PACKETS_PER_PAGE
+        self.rateless.new_version(1, data, force=True, start=False)
+        self.rateless.T_MIN = self.T_MIN
+        self.rateless.T_MAX = self.T_MAX
+        self.rateless.K = self.K
+        self.rateless._reset_round_state()
+
+        rateless_deluge.ROWS_REQUIRED = self.R_PACKETS_PER_PAGE
+        self.rateless.PDU_CLS.DATA_FORMAT = "II" + ("B" * self.R_PACKETS_PER_PAGE) + \
+            ("B" * self.R_PACKET_SIZE)
 
     def start_normal(self, version, data):
         active = self.apps[self.PROTOCOL]
@@ -219,8 +245,10 @@ class Manager(net.layers.application.Application):
     def _send_ctrl(self):
         ctrl = ManagerPDU.create_ctrl_packet(
             protocol=self.PROTOCOL,
-            page_size=self.PAGE_SIZE,
-            packet_size=self.PACKET_SIZE,
+            d_page_size=self.D_PAGE_SIZE,
+            d_packet_size=self.D_PACKET_SIZE,
+            r_page_size=self.R_PAGE_SIZE,
+            r_packet_size=self.R_PACKET_SIZE,
             k=self.K,
             t_min=self.T_MIN,
             t_max=self.T_MAX,
@@ -257,8 +285,10 @@ def main(args):
     manager.set_mode(args.mode)
     control_pdu = ManagerPDU.create_ctrl_packet(
         protocol=Protocol.get_protocol(args.protocol),
-        page_size=args.pagesize,
-        packet_size=args.packetsize,
+        d_page_size=args.dpagesize,
+        d_packet_size=args.dpacketsize,
+        r_page_size=args.rpagesize,
+        r_packet_size=args.rpacketsize,
         k=args.k,
         t_min=args.tmin,
         t_max=args.tmax,
@@ -268,14 +298,14 @@ def main(args):
     # Start.
     seed_data = args.file.read()
     args.file.close()
-    if self.mode == Mode.NORMAL_MODE:
+    if manager.mode == Mode.NORMAL_MODE:
         manager.start_normal(args.version, seed_data)
 
     while True:
-        if self.mode == Mode.CONTROL_MODE:
-            self._send_ctrl()
-        if self.mode == Mode.LISTEN_MODE:
-            self._send_ping()
+        if manager.mode == Mode.CONTROL_MODE:
+            manager._send_ctrl()
+        if manager.mode == Mode.LISTEN_MODE:
+            manager._send_ping()
         time.sleep(1)
 
 
@@ -301,10 +331,19 @@ if __name__ == '__main__':
                         help='The lower bound for the round window length, in seconds.')
     config.add_argument('--tmax', type=float, default=60 * 10,
                         help='The upper bound for the round window length, in seconds.')
-    config.add_argument('--pagesize', type=int, default=1020,
-                        help='The number of bytes in each page.')
-    config.add_argument('--packetsize', type=int, default=60,
-                        help='The number of bytes in each packet.')
+
+    # Deluge page/packet size
+    config.add_argument('--dpagesize', type=int, default=1020,
+                        help='Deluge: The number of bytes in each page.')
+    config.add_argument('--dpacketsize', type=int, default=60,
+                        help='Deluge: The number of bytes in each packet.')
+
+    # Rateless page/packet size
+    config.add_argument('--rpagesize', type=int, default=900,
+                        help='Rateless: The number of bytes in each page.')
+    config.add_argument('--rpacketsize', type=int, default=45,
+                        help='Rateless: The number of bytes in each packet.')
+
     config.add_argument('--delay', type=int, default=3,
                         help='The number of seconds to wait before starting the protocol.')
     args = parser.parse_args()
