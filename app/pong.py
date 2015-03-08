@@ -243,6 +243,7 @@ class Pong(net.layers.application.Application):
             self.start_normal()
 
     def start_normal(self):
+        time.sleep(10)
         self.send_time_req_delayed()
 
     def _handle_incoming(self, data):
@@ -325,7 +326,7 @@ class Pong(net.layers.application.Application):
     def send_time_req_delayed(self):
         if self._time_req_timer is not None:
             self._time_req_timer.cancel()
-        self._time_req_timer = threading.Timer(2, self.send_time_req)
+        self._time_req_timer = threading.Timer(5, self.send_time_req)
         self._time_req_timer.start()
 
     def send_time_req(self):
