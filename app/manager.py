@@ -300,12 +300,11 @@ def main(args):
     args.file.close()
     if manager.mode == Mode.NORMAL_MODE:
         manager.start_normal(args.version, seed_data)
-
+    if manager.mode == Mode.LISTEN_MODE:
+        manager._send_ping()
     while True:
         if manager.mode == Mode.CONTROL_MODE:
             manager._send_ctrl()
-        if manager.mode == Mode.LISTEN_MODE:
-            manager._send_ping()
         time.sleep(1)
 
 
