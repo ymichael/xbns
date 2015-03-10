@@ -1,4 +1,6 @@
 data/
 out/
 addr.txt
-log/
+log/*.log
+log/*/*.txt
+log/*.txt
