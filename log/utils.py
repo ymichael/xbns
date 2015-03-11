@@ -159,9 +159,9 @@ def get_stats(lines):
     print "Nodes involved %s" % nodes
     print "Seed = %s, T_MIN = %s" % (seed_addrs, t_min)
     # Sort by distance from seed.
-    order = [node for t, node in sorted((t, node) for node, t in time_taken.iteritems())]
 
     def ppprint(nodes_to_times):
+        order = [node for t, node in sorted((t, node) for node, t in nodes_to_times.iteritems())]
         previous = None
         for node in order:
             if node not in start_times:
@@ -180,7 +180,7 @@ def get_stats(lines):
     ppprint(time_taken)
 
     print "# Packets sent"
-    for node in order:
+    for node in nodes:
         print node, "->", packets_sent[node] if node in packets_sent else None
     print "Total frames sent %s" % sum(packets_sent.values())
 
