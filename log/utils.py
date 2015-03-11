@@ -190,37 +190,41 @@ def sync_timings(lines):
     version = get_version(lines)
     deltas = dict((n, datetime.timedelta()) for n in nodes)
 
+    # Get the first message received from every other node
     for node in nodes:
-        # Get the first message received.
-        first_message_received = None
-        for l in lines:
-            if l.addr == node and l.version == version and \
-                    l.pdu_source_addr != None and l.pdu_source_addr != node:
-                first_message_received = l
-                break
-        if first_message_received is None:
-            continue
+        for node2 in nodes:
+            if node == node2:
+                continue
 
-        sender = first_message_received.pdu_source_addr
-        pdu_repr = first_message_received.pdu_repr.strip()
+            first_message_received = None
+            for l in lines:
+                if l.addr == node and l.version == version and \
+                        l.pdu_source_addr != None and l.pdu_source_addr == node2:
+                    first_message_received = l
+                    break
+            if first_message_received is None:
+                continue
 
-        # Search for first possible sent log
-        first_message_sent = None
-        for l in lines:
-            if l.addr == sender and l.pdu_source_addr == sender and \
-                    l.pdu_repr and l.pdu_repr == pdu_repr:
-                first_message_sent = l
-                break
-        if first_message_sent is None:
-            continue
+            sender = node2
+            pdu_repr = first_message_received.pdu_repr.strip()
 
-        # Correct the timings
-        if first_message_sent.timestamp > first_message_received.timestamp:
-            # Always correct sender to earlier timing.
-            delta = first_message_sent.timestamp - first_message_received.timestamp
-            # Add a small transmission delay
-            delta += datetime.timedelta(milliseconds=10)
-            deltas[sender] = max(delta, deltas[sender])
+            # Search for first possible sent log
+            first_message_sent = None
+            for l in lines:
+                if l.addr == sender and l.pdu_source_addr == sender and \
+                        l.pdu_repr and l.pdu_repr == pdu_repr:
+                    first_message_sent = l
+                    break
+            if first_message_sent is None:
+                continue
+
+            # Correct the timings
+            if first_message_sent.timestamp > first_message_received.timestamp:
+                # Always correct sender to earlier timing.
+                delta = first_message_sent.timestamp - first_message_received.timestamp
+                # Add a small transmission delay
+                delta += datetime.timedelta(milliseconds=10)
+                deltas[sender] = max(delta, deltas[sender])
 
     def correct_timing(l):
         if l.addr is None or deltas[l.addr] == 0:
