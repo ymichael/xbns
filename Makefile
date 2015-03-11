@@ -46,14 +46,8 @@ settime:
 setpower:
 	PYTHONPATH=. python app/pong.py -m power --port=$(SERIALPORT) --value=$(POWER)
 
-deluge:
-	PYTHONPATH=. python app/run_deluge.py -f data/32B.in
-
 manager:
 	PYTHONPATH=. python app/manager.py -f data/20KB.in $(ARGS)
-
-rateless:
-	PYTHONPATH=. python app/run_rateless_deluge.py -f data/100KB.in
 
 sim:
 	PYTHONPATH=. python sim/main.py $(ARGS)
