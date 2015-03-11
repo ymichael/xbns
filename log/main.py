@@ -1,39 +1,24 @@
 import argparse
-import collections
-import datetime
 import math
 import re
 
-
-_LogLine = collections.namedtuple(
-    'LogLine',
-    'timestamp log_level protocol message original addr state version completed_pages total_pages t pdu')
-
-
-def LogLine(timestamp, log_level, protocol, message, original,
-            addr=None, state=None, version=None, completed_pages=None,
-            total_pages=None, t=None, pdu=None):
-    return _LogLine(timestamp=timestamp, log_level=log_level,
-                    protocol=protocol, message=message, original=original,
-                    addr=addr, state=state, version=version,
-                    completed_pages=completed_pages, total_pages=total_pages,
-                    t=t, pdu=pdu)
+from utils import parse_log_line
 
 
 def main(args):
+    def is_relevant(logline):
+        if logline is None:
+            return False
+        if logline.protocol == "Manager" and "CTRL" not in logline.original:
+            return False
+        if logline.timestamp.year != 2015:
+            return False
+        return True
+
     # Read lines each logfile into a list.
     lines = []
     for f in args.files:
-        for line in f.readlines():
-            parsed_line = parse_log_line(line)
-            if parsed_line is None:
-                continue
-            if parsed_line.protocol == "Manager" and \
-                    "CTRL" not in parsed_line.original:
-                continue
-            if parsed_line.timestamp.year != 2015:
-                continue
-            lines.append(parsed_line)
+        lines.extend(filter(is_relevant, map(parse_log_line, f.readlines())))
     lines.sort()
 
     # Split into runs
@@ -82,7 +67,7 @@ def get_stats(lines):
     # Nodes involved and version upgraded to.
     nodes = set(line.addr for line in lines if line.addr)
     version = max(line.version for line in lines if line.version)
-    
+
     # Determine the T_MIN and the seed node for this run.
     t_min = min(line.t for line in lines if line.t)
 
@@ -145,7 +130,7 @@ def get_stats(lines):
 
     print "# Completion times"
     ppprint(completion_times)
-    
+
     print "# Time taken"
     ppprint(time_taken)
 
@@ -155,48 +140,6 @@ def get_stats(lines):
     print "Total frames sent %s" % sum(packets_sent.values())
 
 
-def parse_log_line(line):
-    # Prefix format.
-    # %(name)s - %(levelname)s - %(asctime)s: %(message)s
-    matches = re.match("(.*?) - (.*?) - ([0-9\-:,\s]*):(.*)", line)
-    if matches is None:
-        return None
-    groups = matches.groups()
-    protocol = groups[0]
-    log_level = groups[1]
-    message = groups[3].strip()
-
-    # 2014-04-23 20:20:04,607
-    # timestamp = datetime.datetime.strptime(groups[2], "%Y-%m-%d %H:%M:%S,%f")
-    # year, month, day, h, m, s, micros = \
-    #     re.match("([0-9]*?)-([0-9]*?)-([0-9]*?) ([0-9]*?):([0-9]*?):([0-9]*?),([0-9]*)", timestamp).groups()
-    # This is 2X faster that strptime and slightly better than using re.
-    timestamp = groups[2].strip()
-    date, time = timestamp.split()
-    year, month, day = date.split("-")
-    time, micros = time.split(",")
-    h, m, s = time.split(":")
-    timestamp = datetime.datetime(int(year), int(month), int(day), int(h), int(m), int(s), int(micros))
-
-    # Try to parse message
-    msg_matches = re.match("\((.*?), (.*?), \[v(.*?), (.*?)\/(.*?)\], (.*?)\) - (.*)", message)
-    if msg_matches is not None:
-        msg_groups = msg_matches.groups()
-        addr = int(msg_groups[0])
-        state = msg_groups[1]
-        version = int(msg_groups[2])
-        completed_pages = int(msg_groups[3])
-        total_pages = int(msg_groups[4])
-        t = float(msg_groups[5])
-        pdu = msg_groups[6]
-        return LogLine(timestamp=timestamp, log_level=log_level,
-                       protocol=protocol, message=message, original=line,
-                       addr=addr, state=state, version=version,
-                       completed_pages=completed_pages, total_pages=total_pages,
-                       t=t, pdu=pdu)
-    else:
-        return LogLine(timestamp=timestamp, log_level=log_level, original=line,
-                       protocol=protocol, message=message)
 
 
 if __name__ == '__main__':
