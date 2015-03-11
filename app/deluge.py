@@ -1,4 +1,5 @@
 import coding.message
+import datetime
 import hashlib
 import net.layers.application
 import net.layers.transport
@@ -280,14 +281,11 @@ class Deluge(net.layers.application.Application):
         # The number of REQ sent since entering the RX state.
         self._rx_num_sent = 0
 
-        # Received REQ messages in the current round.
-        self._req_for_page_less_than_curr_page = False
+        # [time, req_pdu] of the last req packet received.
+        self._last_req_packet_recieved = (None, None)
 
-        # Buffer previous round result.
-        self._req_for_page_less_than_curr_page_buffer = False
-
-        # Received DATA messages for next page or less in the current round.
-        self._data_for_next_page_or_less_overheard = False
+        # [time, data_pdu] of the last data packet received.
+        self._last_data_packet_received = (None, None)
 
     def stop(self):
         self._stopped = True
@@ -318,10 +316,6 @@ class Deluge(net.layers.application.Application):
         self.req_and_data_overheard_buffer = self.req_and_data_overheard
         self.req_and_data_overheard = 0
         self.rounds_in_state += 1
-        self._req_for_page_less_than_curr_page_buffer = \
-            self._req_for_page_less_than_curr_page
-        self._req_for_page_less_than_curr_page = False
-        self._data_for_next_page_or_less_overheard = False
 
         self._log_round()
         if self.state == self.STATE_CLS.MAINTAIN:
@@ -431,10 +425,10 @@ class Deluge(net.layers.application.Application):
             self.req_and_data_overheard += 1
         if data_unit.is_req() and \
                 data_unit.page_number < len(self.complete_pages):
-            self._req_for_page_less_than_curr_page = True
+            self._last_req_packet_recieved = (datetime.datetime.now(), data_unit)
         if data_unit.is_data() and \
                 data_unit.page_number <= len(self.complete_pages):
-            self._data_for_next_page_or_less_overheard = True
+            self._last_data_packet_received = (datetime.datetime.now(), data_unit)
 
         if data_unit.is_adv():
             self._process_adv(data_unit, sender_addr)
@@ -478,12 +472,13 @@ class Deluge(net.layers.application.Application):
             # overheard within the last 2 rounds OR a DATA for a page we want/
             # can fulfil was overheard in the last round.
             if self.state == self.STATE_CLS.MAINTAIN:
-                if self._data_for_next_page_or_less_overheard or \
-                        self._req_for_page_less_than_curr_page or \
-                        self._req_for_page_less_than_curr_page_buffer:
-                    self.log("SUPPRESS TRANSITION INTO RX. %s, %s, %s" % \
-                        (self._data_for_next_page_or_less_overheard, self._req_for_page_less_than_curr_page,
-                            self._req_for_page_less_than_curr_page_buffer))
+                overheard_data_recently = self._last_data_packet_received[0] and \
+                    (datetime.datetime.now() - self._last_data_packet_received[0]).total_seconds() <= self.T_MIN and \
+                    self._last_data_packet_received[1].version == self.version
+                overheard_req_recently = self._last_req_packet_recieved[0] and \
+                    (datetime.datetime.now() - self._last_req_packet_recieved[0]).total_seconds() <= (2 * self.T_MIN)
+                if overheard_req_recently or overheard_data_recently:
+                    self.log("SUPPRESS TRANSITION INTO RX. %s, %s" % (overheard_req_recently, overheard_data_recently))
                     return
                 self._enter_rx(sender_addr)
                 self._set_inconsistent()
