@@ -1,29 +1,21 @@
 import argparse
-import math
 import re
 
-from utils import parse_log_line
+from utils import get_log_lines
+from utils import sync_timings
 
 
 def main(args):
-    def is_relevant(logline):
-        if logline is None:
-            return False
-        if logline.timestamp.year != 2015:
-            return False
-        return True
-
-    # Read lines each logfile into a list.
-    lines = []
-    for f in args.files:
-        lines.extend(filter(is_relevant, map(parse_log_line, f.readlines())))
-    lines.sort()
+    lines = get_log_lines(args.files)
 
     # Filter lines.
     if args.s is not None:
         lines = filter(lambda x: x.addr in args.s and "Sending" in x.original, lines)
     if args.r is not None:
         lines = filter(lambda x: x.addr in args.r and "Received" in x.original, lines)
+
+    if args.c:
+        lines = sync_timings(lines)
 
     for line in lines:
         print line.original.strip()
@@ -37,5 +29,6 @@ if __name__ == '__main__':
                         help="Only show logs for messages sent from these nodes")
     parser.add_argument('-r', action='append', type=int,
                         help="Only show logs for messages received by these nodes")
+    parser.add_argument('-c', action='store_true', help="Attempt to sync timings.")
     args = parser.parse_args()
     main(args)
