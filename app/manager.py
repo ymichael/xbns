@@ -134,9 +134,15 @@ class Manager(net.layers.application.Application):
 
     # Parameters
     PROTOCOL = Protocol.DELUGE
-    PAGE_SIZE = 1024
-    PACKET_SIZE = 64
-    PACKETS_PER_PAGE = PAGE_SIZE / PACKET_SIZE
+
+    D_PAGE_SIZE = 1020
+    D_PACKET_SIZE = 60
+    D_PACKETS_PER_PAGE = D_PAGE_SIZE / D_PACKET_SIZE
+
+    R_PAGE_SIZE = 900
+    R_PACKET_SIZE = 45
+    R_PACKETS_PER_PAGE = R_PAGE_SIZE / R_PACKET_SIZE
+
     K = 1
     T_MIN = 1
     T_MAX = 60 * 10
@@ -268,9 +274,11 @@ class Manager(net.layers.application.Application):
         self._send(data_unit.to_string(), dest_addr=dest_addr)
 
     def log(self, message):
-        prefix = "(%2s, %s, %s/%s, k = %s, t_min = %s, t_max = %s, delay = %s)" % \
-            (self.addr, Protocol.get_name(self.PROTOCOL), self.PAGE_SIZE,
-                    self.PACKET_SIZE, self.K, self.T_MIN, self.T_MAX, self.DELAY)
+        prefix = "(%2s, %s, D=%s/%s, R=%s/%s, k = %s, t_min = %s, t_max = %s, delay = %s)" % \
+            (self.addr, Protocol.get_name(self.PROTOCOL),
+                self.D_PAGE_SIZE, self.D_PACKET_SIZE,
+                self.R_PAGE_SIZE, self.R_PACKET_SIZE,
+                self.K, self.T_MIN, self.T_MAX, self.DELAY)
         self.logger.info("%s - %s" % (prefix, message))
 
     def _log_receive_pdu(self, data_unit, sender_addr):
