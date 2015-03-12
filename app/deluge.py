@@ -406,6 +406,8 @@ class Deluge(net.layers.application.Application):
                 self.version, page, packet,
                 self.complete_pages[page][packet])
             self._send_pdu(data)
+            # Sleep for a short amount of time.
+            time.sleep(.02)
         self._change_state(self.STATE_CLS.MAINTAIN)
 
     def _handle_incoming(self, data):
@@ -471,14 +473,14 @@ class Deluge(net.layers.application.Application):
             # can fulfil was overheard in the last round.
             if self.state == self.STATE_CLS.MAINTAIN:
                 overheard_data_recently = self._last_data_packet_received[0] and \
-                    (datetime.datetime.now() - self._last_data_packet_received[0]).total_seconds() <= self.T_MIN and \
+                    (datetime.datetime.now() - self._last_data_packet_received[0]).total_seconds() <= self.t and \
                     self._last_data_packet_received[1].version == self.version
                 overheard_req_recently = self._last_req_packet_recieved[0] and \
-                    (datetime.datetime.now() - self._last_req_packet_recieved[0]).total_seconds() <= (2 * self.T_MIN)
+                    (datetime.datetime.now() - self._last_req_packet_recieved[0]).total_seconds() <= (2 * self.t)
                 if overheard_req_recently or overheard_data_recently:
                     self.log("SUPPRESS TRANSITION INTO RX. %s, %s" % (overheard_req_recently, overheard_data_recently))
-                    return
-                self._enter_rx(sender_addr)
+                else:
+                    self._enter_rx(sender_addr)
                 self._set_inconsistent()
                 self._start_next_round(delay=0)
                 return
@@ -552,8 +554,6 @@ class Deluge(net.layers.application.Application):
     def _send_pdu(self, data_unit):
         self._log_send_pdu(data_unit)
         self.send(data_unit.to_string())
-        # Sleep for a short amount of time.
-        time.sleep(0.01)
 
     def _change_state(self, new_state):
         self._log_change_state(new_state)
