@@ -105,8 +105,10 @@ def parse_log_line(line):
 def get_nodes(lines):
     return set(line.addr for line in lines if line.addr)
 
+
 def get_version(lines):
     return max(line.version for line in lines if line.version)
+
 
 def get_stats(lines):
     # Nodes involved and version upgraded to.
@@ -124,65 +126,110 @@ def get_stats(lines):
                 start_times[node] = line.timestamp
                 break
 
-    # Completion time for each node
-    completion_times = {}
-    for node in nodes:
-        for line in lines:
-            if line.addr == node and line.version == version and \
-                    line.total_pages == line.completed_pages:
-                completion_times[node] = line.timestamp
-                break
+    # Breakdown of completion times for each node
+    total_pages = next(l.total_pages for l in lines if l.version == version)
+    completion_times = dict((n, dict()) for n in nodes)
+    for page in xrange(total_pages + 1):
+        for node in nodes:
+            for line in lines:
+                if line.addr == node and \
+                        line.version == version and \
+                        line.completed_pages >= page:
+                    completion_times[node][page] = line.timestamp
+                    break
+
 
     # Time taken for each node
+    final_times = {}
+    for n in nodes:
+        if completion_times[n].get(total_pages):
+            final_times[n] = completion_times[n][total_pages]
+
     time_taken = {}
     for node in nodes:
-        if node in start_times and node in completion_times:
-            time_taken[node] = completion_times[node] - start_times[node]
+        if node in start_times and final_times.get(node) is not None:
+            time_taken[node] = final_times[node] - start_times[node]
     seed_addrs = set(node for node, t in time_taken.iteritems() if t.total_seconds() == 0)
 
     # Packets sent by each node (between earliest start_time and latest completion_time)
     protocol_start = min(start_times.values())
-    protocol_end = max(completion_times.values())
+    protocol_end = max(final_times.values())
     packets_sent = dict((node, 0) for node in nodes)
     for line in lines:
-        if protocol_start <= line.timestamp <= protocol_end and \
+        if line.addr and protocol_start <= line.timestamp <= protocol_end and \
                 "Sending message" in line.message:
             # Extract message size to determine number of frames sent.
             size = int(re.match(".*Sending message \((.*?)\):.*", line.message).groups()[0])
             packets_sent[line.addr] += math.ceil(size / 80.0)
 
-    # Packets received by each node (?)
-    # Packet loss rate.
     print "#####################################################################"
     print "Run starting %s" % lines[0].timestamp.strftime("%Y-%m-%d %H:%M:%S,%f")
     print "#####################################################################"
     print "Nodes involved %s" % nodes
     print "Seed = %s, T_MIN = %s" % (seed_addrs, t_min)
-    # Sort by distance from seed.
-
-    def ppprint(nodes_to_times):
-        order = [node for t, node in sorted((t, node) for node, t in nodes_to_times.iteritems())]
-        previous = None
-        for node in order:
-            if node not in start_times:
-                continue
-            delta = nodes_to_times[node] - previous if previous is not None else 0
-            print "%s -> %s, (%s)" % (node, nodes_to_times[node], delta)
-            previous = nodes_to_times[node]
-
+    print ""
     print "# Start times"
     ppprint(start_times)
 
+    print ""
     print "# Completion times"
-    ppprint(completion_times)
+    ppprint(final_times)
 
+    print ""
+    print "# Completion times (breakdown, secs after seed start time.)"
+    pprint_completion_times(completion_times)
+
+    print ""
     print "# Time taken"
     ppprint(time_taken)
 
+    print ""
     print "# Packets sent"
     for node in nodes:
         print node, "->", packets_sent[node] if node in packets_sent else None
+    print ""
     print "Total frames sent %s" % sum(packets_sent.values())
+
+
+def ppprint(nodes_to_times):
+    order = [node for t, node in sorted((t, node) for node, t in nodes_to_times.iteritems())]
+    previous = None
+    for node in order:
+        if node not in nodes_to_times:
+            continue
+        delta = nodes_to_times[node] - previous if previous is not None else 0
+        print "%s -> %s, (%s)" % (node, nodes_to_times[node], delta)
+        previous = nodes_to_times[node]
+
+
+def pprint_completion_times(ct):
+    nodes = ct.keys()
+    total_pages = len(ct[nodes[0]]) - 1
+
+    # sort nodes by final times
+    final_times = {}
+    for n in nodes:
+        if ct[n].get(total_pages):
+            final_times[n] = ct[n][total_pages]
+    nodes = sorted(final_times.keys(), key=lambda n: final_times.get(n))
+    seed = nodes[0]
+
+    rows = []
+    for page in xrange(total_pages + 1):
+        row = [page]
+        for node in nodes:
+            delta_from_seed_start = (ct[node][page] - ct[seed][0]).total_seconds()
+            if page != 0:
+                delta_from_previous_page = (ct[node][page] - ct[node][page - 1]).total_seconds()
+            else:
+                delta_from_previous_page = 0
+            row.append("%s, (%s)" % (int(delta_from_seed_start), int(delta_from_previous_page)))
+        rows.append(row)
+
+    headers = ['page no.']
+    headers.extend(nodes)
+    import tabulate
+    print tabulate.tabulate(rows, headers=headers, numalign="right", stralign="right")
 
 
 def sync_timings(lines):

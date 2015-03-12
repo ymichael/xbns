@@ -16,7 +16,8 @@ def main(args):
     start_idx = 0
     while current_idx < len(lines):
         line = lines[current_idx]
-        if line.addr == 20 and line.protocol == "Deluge" and \
+        if (line.addr == 7 or line.addr == 20) and \
+                line.protocol == "Deluge" and \
                 "Starting Application" in line.message:
             runs.append(lines[start_idx:current_idx])
             start_idx = current_idx
@@ -25,6 +26,8 @@ def main(args):
 
     # Eliminate runs without any DATA packets sent
     def is_protocol_simulation(run):
+        if len(get_nodes(run)) <= 1:
+            return False
         # First line should be "Starting application."
         if "Starting" not in run[0].original:
             return False
