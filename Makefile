@@ -55,9 +55,6 @@ sim:
 test:
 	PYTHONPATH=. nosetests
 
-clearlogs:
-	rm log/*
-
 setup:
 	./bin/setup.sh
 
@@ -66,8 +63,10 @@ rsync:
 	rsync -avz \
 		--exclude=.git \
 		--exclude=addr.txt \
+		--exclude=*.txt \
 		--exclude=.venv \
 		--exclude=*.pyc \
-		--exclude=*.log* \
+		--exclude=*.log \
+		--exclude=log/* \
 		--exclude=out \
 		. michael@bone:~/xbns
