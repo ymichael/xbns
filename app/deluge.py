@@ -406,8 +406,6 @@ class Deluge(net.layers.application.Application):
                 self.version, page, packet,
                 self.complete_pages[page][packet])
             self._send_pdu(data)
-            # Sleep for a short amount of time.
-            time.sleep(.02)
         self._change_state(self.STATE_CLS.MAINTAIN)
 
     def _handle_incoming(self, data):
@@ -554,6 +552,8 @@ class Deluge(net.layers.application.Application):
     def _send_pdu(self, data_unit):
         self._log_send_pdu(data_unit)
         self.send(data_unit.to_string())
+        # Sleep for a short amount of time.
+        time.sleep(0.01)
 
     def _change_state(self, new_state):
         self._log_change_state(new_state)

@@ -1,10 +1,10 @@
-import coding.message
 import coding.ff
+import coding.message
 import deluge
 import itertools
 import random
 import struct
-import time
+import threading
 
 
 # TODO: Fix this circular dependency.
@@ -65,6 +65,8 @@ class RatelessDeluge(deluge.Deluge):
     PACKET_SIZE = 45
     PACKETS_PER_PAGE = PAGE_SIZE / PACKET_SIZE
 
+    PENDING_DATAS_LOCK = threading.Lock()
+
     def _reset_round_state(self):
         super(RatelessDeluge, self)._reset_round_state()
 
@@ -113,16 +115,27 @@ class RatelessDeluge(deluge.Deluge):
         return m
 
     def _send_data(self):
-        for page, number_of_packets in self._pending_datas.items():
-            for i in xrange(number_of_packets):
+        while True:
+            pages_to_send = set()
+            with self.PENDING_DATAS_LOCK:
+                if len(self._pending_datas) == 0:
+                    break
+                # Send one packet per page.
+                for page, number_of_packets in self._pending_datas.items():
+                    if number_of_packets <= 0:
+                        del self._pending_datas[page]
+                    else:
+                        self._pending_datas[page] -= 1
+                        pages_to_send.add(page)
+
+            while len(pages_to_send) != 0:
+                page = pages_to_send.pop()
                 coeffs = self._get_random_coeffs()
                 coded_data = coeffs.dot(self.complete_pages[page])
                 data = self.PDU_CLS.create_data_packet(
                     self.version, page, list(coeffs.iter_row(0)), list(coded_data.iter_row(0)))
                 self._send_pdu(data)
-                # Sleep for a short amount of time.
-                time.sleep(.02)
-        self._pending_datas = {}
+
         self._change_state(self.STATE_CLS.MAINTAIN)
 
     def _process_req(self, data_unit):
@@ -132,13 +145,19 @@ class RatelessDeluge(deluge.Deluge):
         # Only process is REQ was meant for us.
         if data_unit.request_from != self.addr:
             return
-        # We are able to fulfill request.
-        if self.state == self.STATE_CLS.MAINTAIN:
-            self._change_state(self.STATE_CLS.TX)
-            self._pending_datas[data_unit.page_number] = \
-                max(data_unit.number_of_packets,
-                    self._pending_datas.get(data_unit.page_number, 0))
-            self._start_next_round(delay=0)
+
+        with self.PENDING_DATAS_LOCK:
+            # We are able to fulfill request.
+            if self.state == self.STATE_CLS.MAINTAIN:
+                self._change_state(self.STATE_CLS.TX)
+                self._pending_datas[data_unit.page_number] = \
+                    max(data_unit.number_of_packets,
+                        self._pending_datas.get(data_unit.page_number, 0))
+                self._start_next_round(delay=0)
+            elif self.state == self.STATE_CLS.TX:
+                self._pending_datas[data_unit.page_number] = \
+                    max(data_unit.number_of_packets,
+                        self._pending_datas.get(data_unit.page_number, 0))
 
     def _process_data(self, data_unit):
         # Remove from pending DATA if applicable.
