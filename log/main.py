@@ -12,17 +12,20 @@ def main(args):
     lines = get_log_lines(args.files)
 
     # Split into runs
-    runs = []
-    current_idx = 0
-    start_idx = 0
-    while current_idx < len(lines):
-        line = lines[current_idx]
-        if "Starting Application" in line.message:
-            runs.append(lines[start_idx:current_idx])
-            start_idx = current_idx
-        current_idx += 1
-    runs.append(lines[start_idx:current_idx])
-    runs = filter(len, runs)
+    if args.f:
+        runs = [lines]
+    else:
+        runs = []
+        current_idx = 0
+        start_idx = 0
+        while current_idx < len(lines):
+            line = lines[current_idx]
+            if "Starting Application" in line.message:
+                runs.append(lines[start_idx:current_idx])
+                start_idx = current_idx
+            current_idx += 1
+        runs.append(lines[start_idx:current_idx])
+        runs = filter(len, runs)
 
     def is_protocol_simulation(run):
         """A bunch of heuristics/rules to rule out invalid runs."""
@@ -30,7 +33,7 @@ def main(args):
         if "Starting" not in run[0].original:
             return False
         # At least two nodes
-        nodes = get_nodes(run) 
+        nodes = get_nodes(run)
         if len(nodes) <= 1:
             return False
         # At least 1000 lines of logs.
@@ -52,7 +55,8 @@ def main(args):
 
         return True
 
-    runs = filter(is_protocol_simulation, runs)
+    if not args.f:
+        runs = filter(is_protocol_simulation, runs)
     print "Number of runs: %s" % len(runs)
 
     # Sync timings.
@@ -76,6 +80,7 @@ if __name__ == '__main__':
     parser.add_argument('files', metavar='LOGFILE', nargs='+',
                         type=argparse.FileType('r'), help="Logfiles to parse.")
     parser.add_argument('-o', action='store_true', help="Output runs to file.")
+    parser.add_argument('-f', action='store_true', help="Force results")
     parser.add_argument('-c', action='store_true', help="Attempt to sync timings from multiple logfiles.")
     args = parser.parse_args()
     main(args)
