@@ -4,6 +4,7 @@ import re
 from utils import get_log_lines
 from utils import get_nodes
 from utils import get_stats
+from utils import get_version
 from utils import sync_timings
 
 
@@ -16,29 +17,40 @@ def main(args):
     start_idx = 0
     while current_idx < len(lines):
         line = lines[current_idx]
-        if (line.addr == 7 or line.addr == 20) and \
-                line.protocol == "Deluge" and \
-                "Starting Application" in line.message:
+        if "Starting Application" in line.message:
             runs.append(lines[start_idx:current_idx])
             start_idx = current_idx
         current_idx += 1
     runs.append(lines[start_idx:current_idx])
 
-    # Eliminate runs without any DATA packets sent
     def is_protocol_simulation(run):
-        if len(get_nodes(run)) <= 1:
-            return False
+        """A bunch of heuristics/rules to rule out invalid runs."""
         # First line should be "Starting application."
         if "Starting" not in run[0].original:
             return False
-        # Number of DATA packets should be at least 100.
-        num_data_packets = 0
-        for lines in run:
-            if "DATA" in lines.message:
-                num_data_packets += 1
-            if num_data_packets > 100:
-                return True
-        return False
+        # At least two nodes
+        nodes = get_nodes(run) 
+        if len(nodes) <= 1:
+            return False
+        # At least 1000 lines of logs.
+        if len(run) <= 1000:
+            return False
+        # Number of DATA packets should be at least 1000.
+        num_data_packets = sum(1 for l in run if "DATA" in l.message)
+        if num_data_packets < 1000:
+            return False
+        # At least half the nodes completed
+        version = get_version(run)
+        nodes_completed = set()
+        for l in run:
+            if l.total_pages == l.completed_pages and \
+                    l.version == version:
+                nodes_completed.add(l.addr)
+        if (len(nodes_completed) / float(len(nodes))) < .5:
+            return False
+
+        return True
+
     runs = filter(is_protocol_simulation, runs)
     print "Number of runs: %s" % len(runs)
 
