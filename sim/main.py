@@ -95,7 +95,7 @@ def main(args):
             nodes[addr].get_application(APP_CLS.ADDRESS).new_version(1, data)
 
     # Don't terminate.
-    while True
+    while True:
         time.sleep(100)
 
 
