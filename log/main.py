@@ -22,6 +22,7 @@ def main(args):
             start_idx = current_idx
         current_idx += 1
     runs.append(lines[start_idx:current_idx])
+    runs = filter(len, runs)
 
     def is_protocol_simulation(run):
         """A bunch of heuristics/rules to rule out invalid runs."""
