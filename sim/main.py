@@ -53,6 +53,24 @@ def main(args):
 
     # Run protocol.
     APP_CLS = PROTOCOLS[args.protocol]
+    if args.protocol == 'deluge' or args.protocol == 'rateless':
+        APP_CLS.K = args.k
+        APP_CLS.T_MIN = args.tmin
+        APP_CLS.T_MAX = args.tmax
+        if args.protocol == 'deluge':
+            assert args.dpagesize % args.dpacketsize == 0
+            APP_CLS.PAGE_SIZE = args.dpagesize
+            APP_CLS.PACKET_SIZE = args.dpacketsize
+            APP_CLS.PACKETS_PER_PAGE = args.dpagesize / args.dpacketsize
+        elif args.protocol == 'rateless':
+            assert args.rpagesize % args.rpacketsize == 0
+            APP_CLS.PAGE_SIZE = args.rpagesize
+            APP_CLS.PACKET_SIZE = args.rpacketsize
+            APP_CLS.PACKETS_PER_PAGE = args.rpagesize / args.rpacketsize
+            app.rateless_deluge.ROWS_REQUIRED = args.rpagesize / args.rpacketsize
+            APP_CLS.PDU_CLS.DATA_FORMAT = "II" + ("B" * APP_CLS.PACKETS_PER_PAGE) + \
+                ("B" * APP_CLS.PACKET_SIZE)
+
     for addr, node in nodes.iteritems():
         node.start_application(APP_CLS(addr))
 
@@ -100,5 +118,25 @@ if __name__ == '__main__':
                         help='File to propagate through the network')
     parser.add_argument('--log', type=bool, default=False,
                         help='Whether to write to log file.')
+
+    parser.add_argument('-k', type=int, default=1,
+                        help='Number of overheard messages to trigger message suppression.')
+    parser.add_argument('--tmin', type=float, default=1,
+                        help='The lower bound for the round window length, in seconds.')
+    parser.add_argument('--tmax', type=float, default=60 * 10,
+                        help='The upper bound for the round window length, in seconds.')
+
+    # Deluge page/packet size
+    parser.add_argument('--dpagesize', type=int, default=1020,
+                        help='Deluge: The number of bytes in each page.')
+    parser.add_argument('--dpacketsize', type=int, default=60,
+                        help='Deluge: The number of bytes in each packet.')
+
+    # Rateless page/packet size
+    parser.add_argument('--rpagesize', type=int, default=900,
+                        help='Rateless: The number of bytes in each page.')
+    parser.add_argument('--rpacketsize', type=int, default=45,
+                        help='Rateless: The number of bytes in each packet.')
+
     args = parser.parse_args()
     main(args)
