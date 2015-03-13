@@ -1,6 +1,5 @@
 data/
 out/
 addr.txt
-log/*.log
-log/*/*.txt
-log/*.txt
+log/*
+!log/*.py
