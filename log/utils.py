@@ -2,6 +2,7 @@ import collections
 import datetime
 import math
 import re
+import tabulate
 
 
 class LogLine(object):
@@ -138,13 +139,11 @@ def get_stats(lines):
                     completion_times[node][page] = line.timestamp
                     break
 
-
     # Time taken for each node
     final_times = {}
     for n in nodes:
         if completion_times[n].get(total_pages):
             final_times[n] = completion_times[n][total_pages]
-
     time_taken = {}
     for node in nodes:
         if node in start_times and final_times.get(node) is not None:
@@ -154,52 +153,67 @@ def get_stats(lines):
     # Packets sent by each node (between earliest start_time and latest completion_time)
     protocol_start = min(start_times.values())
     protocol_end = max(final_times.values())
-    packets_sent = dict((node, 0) for node in nodes)
+    # 0: ADV, 1: REQ, 2: DATA
+    packets_sent = dict((node, [0, 0, 0]) for node in nodes)
     for line in lines:
         if line.addr and protocol_start <= line.timestamp <= protocol_end and \
                 "Sending message" in line.message:
             # Extract message size to determine number of frames sent.
             size = int(re.match(".*Sending message \((.*?)\):.*", line.message).groups()[0])
-            packets_sent[line.addr] += math.ceil(size / 80.0)
+            frames = math.ceil(size / 80.0)
+            if "ADV" in line.original:
+                packets_sent[line.addr][0] += frames
+            elif "REQ" in line.original:
+                packets_sent[line.addr][1] += frames
+            elif "DATA" in line.original:
+                packets_sent[line.addr][2] += frames
+
 
     print "#####################################################################"
     print "Run starting %s" % lines[0].timestamp.strftime("%Y-%m-%d %H:%M:%S,%f")
     print "#####################################################################"
     print "Nodes involved %s" % nodes
     print "Seed = %s, T_MIN = %s" % (seed_addrs, t_min)
-    print ""
-    print "# Start times"
-    ppprint(start_times)
-
-    print ""
-    print "# Completion times"
-    ppprint(final_times)
-
-    print ""
+    print "# Start/Completion/Total times"
+    ppprint_timings(start_times, final_times, time_taken)
     print "# Completion times (breakdown, secs after seed start time.)"
     pprint_completion_times(completion_times)
-
-    print ""
-    print "# Time taken"
-    ppprint(time_taken)
-
-    print ""
     print "# Packets sent"
-    for node in nodes:
-        print node, "->", packets_sent[node] if node in packets_sent else None
-    print ""
-    print "Total frames sent %s" % sum(packets_sent.values())
+    pprint_packets_sent(packets_sent)
 
 
-def ppprint(nodes_to_times):
-    order = [node for t, node in sorted((t, node) for node, t in nodes_to_times.iteritems())]
-    previous = None
+def ppprint_timings(start_times, final_times, time_taken):
+    order = [node for t, node in sorted((t, node) for node, t in start_times.iteritems())]
+    rows = []
     for node in order:
-        if node not in nodes_to_times:
+        row = [node]
+        row.append(start_times.get(node))
+        row.append(final_times.get(node))
+        row.append(time_taken.get(node))
+        rows.append(row)
+    headers = ["node", "start", "end", "time taken"]
+    print tabulate.tabulate(rows, headers=headers, numalign="right", stralign="right")
+
+
+def pprint_packets_sent(packets_sent):
+    nodes = packets_sent.keys()
+    rows = []
+    for n in nodes:
+        row = [n]
+        row.extend(packets_sent[n])
+        row.append(sum(packets_sent[n]))
+        rows.append(row)
+
+    # last row
+    last_row = ["total"]
+    for i in xrange(len(rows[0])):
+        if i == 0:
             continue
-        delta = nodes_to_times[node] - previous if previous is not None else 0
-        print "%s -> %s, (%s)" % (node, nodes_to_times[node], delta)
-        previous = nodes_to_times[node]
+        last_row.append(sum(r[i] for r in rows))
+    rows.append(last_row)
+    print tabulate.tabulate(
+        rows, headers=["node", "ADV", "REQ", "DATA", "Total"],
+        numalign="right", stralign="right")
 
 
 def pprint_completion_times(ct):
@@ -228,7 +242,6 @@ def pprint_completion_times(ct):
 
     headers = ['page no.']
     headers.extend(nodes)
-    import tabulate
     print tabulate.tabulate(rows, headers=headers, numalign="right", stralign="right")
 
 
