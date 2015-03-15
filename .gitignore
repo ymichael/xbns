@@ -3,3 +3,5 @@ out/
 addr.txt
 log/*
 !log/*.py
+*.pyc
+.DS_Store
