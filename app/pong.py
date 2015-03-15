@@ -382,7 +382,8 @@ class Pong(net.layers.application.Application):
         if message.is_upgrade_patch() and self.mode == Mode.NORMAL:
             # Check if patch is applicable for this node.
             if message.from_rev == git.git.get_current_revision():
-                git.git.apply_patch(message.patch)
+                self.log("Applying Patch:")
+                self.log(git.git.apply_patch(message.patch))
                 self.send_pong(dest_addr=sender_addr)
 
         if message.is_upgrade_req() and self.mode == Mode.UPGRADE:
