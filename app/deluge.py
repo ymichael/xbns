@@ -281,11 +281,11 @@ class Deluge(net.layers.application.Application):
         # The number of REQ sent since entering the RX state.
         self._rx_num_sent = 0
 
-        # [time, req_pdu] of the last req packet received.
-        self._last_req_packet_recieved = (None, None)
+        # [time, req_pdu, sender] of the last req packet received.
+        self._last_req_packet_recieved = (None, None, None)
 
-        # [time, data_pdu] of the last data packet received.
-        self._last_data_packet_received = (None, None)
+        # [time, data_pdu, sender] of the last data packet received.
+        self._last_data_packet_received = (None, None, None)
 
     def stop(self):
         self._stopped = True
@@ -425,10 +425,10 @@ class Deluge(net.layers.application.Application):
             self.req_and_data_overheard += 1
         if data_unit.is_req() and \
                 data_unit.page_number < len(self.complete_pages):
-            self._last_req_packet_recieved = (datetime.datetime.now(), data_unit)
+            self._last_req_packet_recieved = (datetime.datetime.now(), data_unit, sender_addr)
         if data_unit.is_data() and \
                 data_unit.page_number <= len(self.complete_pages):
-            self._last_data_packet_received = (datetime.datetime.now(), data_unit)
+            self._last_data_packet_received = (datetime.datetime.now(), data_unit, sender_addr)
 
         if data_unit.is_adv():
             self._process_adv(data_unit, sender_addr)
