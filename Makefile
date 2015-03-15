@@ -41,7 +41,8 @@ ping:
 	PYTHONPATH=. python app/pong.py -m ping --port=$(SERIALPORT)
 
 logs:
-	scp bone:~/xbns/log/* log/
+	rsync -avz --exclude=*.py bone:~/xbns/log/ log/
+	# scp bone:~/xbns/log/* log/
 
 settime:
 	PYTHONPATH=. python app/pong.py -m time --port=$(SERIALPORT)
@@ -61,14 +62,18 @@ test:
 setup:
 	./bin/setup.sh
 
+clearlogs:
+	find log/ -type f | grep -v py | xargs rm
+
 # rsync repository with beaglebone (w/o makefile)
 rsync:
 	rsync -avz \
+		--include=*.py \
 		--exclude=addr.txt \
 		--exclude=*.txt \
 		--exclude=.venv \
 		--exclude=*.pyc \
-		--exclude=*.log \
+		--exclude=*.DS_Store \
 		--exclude=log/* \
 		--exclude=out \
 		. michael@bone:~/xbns
