@@ -23,6 +23,10 @@ An implmentation of a networking stack for use with XBees radios.
   (that make use of the `net` stack)
 - TODO
 
+## `git`
+- Contains functions to interface with `git` for UPGRADE mode in the Pong
+  application.
+
 ## Installing dependencies
 ```sh
 # pyserial, xbee
