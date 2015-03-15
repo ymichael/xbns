@@ -204,12 +204,18 @@ def pprint_packets_sent(packets_sent):
         row.append(sum(packets_sent[n]))
         rows.append(row)
 
-    # last row
-    last_row = ["total"]
+    # second last row
+    second_last_row = ["total"]
     for i in xrange(len(rows[0])):
-        if i == 0:
-            continue
-        last_row.append(sum(r[i] for r in rows))
+        if i == 0: continue
+        second_last_row.append(sum(r[i] for r in rows))
+    rows.append(second_last_row)
+
+    # last row
+    last_row = ["percent"]
+    for i in xrange(len(second_last_row)):
+        if i == 0: continue
+        last_row.append("%.2f%%" % (100 * second_last_row[i] / second_last_row[-1]))
     rows.append(last_row)
     print tabulate.tabulate(
         rows, headers=["node", "ADV", "REQ", "DATA", "Total"],
