@@ -24,8 +24,7 @@ def get_patch_for_revision(from_rev, to_rev="HEAD"):
     assert has_revision(from_rev)
     assert has_revision(to_rev)
     output = subprocess.check_output(
-        ["git", "format-patch",
-            "--stdout", "-k", "-U1", "--shortstat",
+        ["git", "format-patch", "--stdout", "-k", "-U1",
             "..".join([from_rev, to_rev])])
     return bz2.compress(output)
 
