@@ -226,24 +226,35 @@ def pprint_completion_times(ct):
     nodes = ct.keys()
     total_pages = len(ct[nodes[0]]) - 1
 
-    # sort nodes by final times
-    final_times = {}
+    # sort nodes by start times
+    start_times = {}
     for n in nodes:
-        if ct[n].get(total_pages):
-            final_times[n] = ct[n][total_pages]
-    nodes = sorted(final_times.keys(), key=lambda n: final_times.get(n))
+        if ct[n].get(0):
+            start_times[n] = ct[n][0]
+    nodes = sorted(start_times.keys(), key=lambda n: start_times.get(n))
     seed = nodes[0]
+
+    # Order events to better visualize pipelining.
+    events = []
+    time_elapsed = {}
+    for page in xrange(total_pages + 1):
+        for node in nodes:
+            t = (ct[node][page] - ct[seed][0]).total_seconds()
+            events.append((t, node, page))
+    events.sort()
+
+    for i in xrange(len(events)):
+        t, node, page = events[i]
+        # store a 2 element list (time_elapsed, event_order)
+        time_elapsed[(node, page)] = [t, i]
 
     rows = []
     for page in xrange(total_pages + 1):
         row = [page]
         for node in nodes:
-            delta_from_seed_start = (ct[node][page] - ct[seed][0]).total_seconds()
-            if page != 0:
-                delta_from_previous_page = (ct[node][page] - ct[node][page - 1]).total_seconds()
-            else:
-                delta_from_previous_page = 0
-            row.append("%s, (%s)" % (int(delta_from_seed_start), int(delta_from_previous_page)))
+            t, order = time_elapsed[(node, page)]
+            # row.append("%d, (%s)" % (t, order))
+            row.append("%d" % t)
         rows.append(row)
 
     headers = ['page no.']
