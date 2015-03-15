@@ -37,7 +37,9 @@ def apply_patch(compressed_patch):
         temp.flush()
         try:
             output = ""
-            output = subprocess.check_output(["git", "am", temp.name])
+            output = subprocess.check_output(
+                ["git", "am", "--ignore-date",
+                    "--committer-date-is-author-date", temp.name])
         except subprocess.CalledProcessError, e:
             output += e.output
             try:
