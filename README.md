@@ -26,6 +26,7 @@ An implmentation of a networking stack for use with XBees radios.
 ## `git`
 - Contains functions to interface with `git` for UPGRADE mode in the Pong
   application.
+- test
 
 ## Installing dependencies
 ```sh
