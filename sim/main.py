@@ -18,6 +18,7 @@ PROTOCOLS = {
     'pong': app.pong.Pong,
     'toporeq': app.pong.Pong,
     'topoflood': app.pong.Pong,
+    'upgrade': app.pong.Pong,
 }
 
 
@@ -78,6 +79,11 @@ def main(args):
         for addr in args.seed:
             nodes[addr].get_application(APP_CLS.ADDRESS).send_ping()
             nodes[addr].get_application(APP_CLS.ADDRESS).send_time_set()
+
+    if args.protocol == 'upgrade':
+        for addr in args.seed:
+            nodes[addr].get_application(APP_CLS.ADDRESS).set_mode(app.pong.Mode.UPGRADE)
+            nodes[addr].get_application(APP_CLS.ADDRESS).send_upgrade_flood()
 
     if args.protocol == 'toporeq':
         for addr in args.seed:
