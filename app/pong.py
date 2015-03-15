@@ -57,9 +57,23 @@ class Message(object):
     TOPO_PING =  9  # Broadcasts a ping to get neighbour information.
     TOPO_PONG =  10  # Responds to neighbours TOPO_PING
 
+    # Upgrade related messages.
+    # - To initiate upgrade, start Pong app in Mode.UPGRADE mode.
+    # 1. This sends out a UPGRADE_FLOOD message with the current revision.
+    # 2. Upon receiving this UPGRADE_FLOOD message, nodes check if they are
+    #    behind or ahead of this advertised revision.
+    # 3. If a node is ahead, ignore message and respond with a PING.
+    # 4. If the node is behind, send an UPGRADE_REQ message with its current revision.
+    # 5. Only the node with in UPGRADE mode will respond to UPGRADE_REQs with UPGRADE_PATCH
+    #    which contain the git patches to upgrade.
+    # 6. Once a node is up-to-date, it responds with a PING
+    UPGRADE_FLOOD = 11
+    UPGRADE_REQ = 12
+    UPGRADE_PATCH = 13
+
     TIME_FORMAT = "HBBBBBH"
     TIME_FORMAT_SIZE = struct.calcsize(TIME_FORMAT)
-    CURRENT_REV_SIZE = 7 # `git rev-parse --short HEAD`
+    REV_SIZE = 7 # `git rev-parse --short HEAD`
     PL_FORMAT = "H"
     TOPO_PONG_FORMAT = "H"
 
@@ -71,10 +85,13 @@ class Message(object):
         if self.is_pl_set(): self._init_pl_set()
         if self.is_topo_pong(): self._init_topo_pong()
         if self.is_topo_res(): self._init_topo_res()
+        if self.is_upgrade_flood(): self._init_upgrade_flood()
+        if self.is_upgrade_req(): self._init_upgrade_req()
+        if self.is_upgrade_patch(): self._init_upgrade_patch()
 
     def _init_pong(self):
         tfs = self.TIME_FORMAT_SIZE
-        crs = self.CURRENT_REV_SIZE
+        crs = self.REV_SIZE
         self.time_tuple = self.message[:tfs]
         self.time_tuple = struct.unpack(self.TIME_FORMAT, self.time_tuple)
         self.current_rev = self.message[tfs:tfs + crs]
@@ -92,6 +109,17 @@ class Message(object):
 
     def _init_pl_set(self):
         self.power_level = struct.unpack(self.PL_FORMAT, self.message)[0]
+
+    def _init_upgrade_flood(self):
+        self.rev = self.message
+
+    def _init_upgrade_req(self):
+        self.rev = self.message
+
+    def _init_upgrade_patch(self):
+        self.from_rev = self.message[:self.REV_SIZE]
+        self.to_rev = self.message[self.REV_SIZE:2 * self.REV_SIZE]
+        self.patch = self.message[2 * self.REV_SIZE:]
 
     def is_ping(self):
         return self.msg_type == self.PING
@@ -123,6 +151,15 @@ class Message(object):
     def is_topo_pong(self):
         return self.msg_type == self.TOPO_PONG
 
+    def is_upgrade_flood(self):
+        return self.msg_type == self.UPGRADE_FLOOD
+
+    def is_upgrade_req(self):
+        return self.msg_type == self.UPGRADE_REQ
+
+    def is_upgrade_patch(self):
+        return self.msg_type == self.UPGRADE_PATCH
+
     @property
     def type(self):
         if self.is_ping(): return 'PING'
@@ -135,13 +172,29 @@ class Message(object):
         if self.is_topo_flood(): return 'TOPO_FLOOD'
         if self.is_topo_ping(): return 'TOPO_PING'
         if self.is_topo_pong(): return 'TOPO_PONG'
+        if self.is_upgrade_flood(): return 'UPGRADE_FLOOD'
+        if self.is_upgrade_req(): return 'UPGRADE_REQ'
+        if self.is_upgrade_patch(): return 'UPGRADE_PATCH'
 
     def __repr__(self):
         if self.is_pong(): return self._repr_pong()
         if self.is_time_set(): return self._repr_time_set()
         if self.is_topo_pong(): return self._repr_topo_pong()
         if self.is_topo_res(): return self._repr_topo_res()
+        if self.is_upgrade_flood(): return self._repr_upgrade_flood()
+        if self.is_upgrade_req(): return self._repr_upgrade_req()
+        if self.is_upgrade_patch(): return  self._repr_upgrade_patch()
         return "%6s" % self.type
+
+    def _repr_upgrade_flood(self):
+        return "%s, current_rev = %s" % (self.type, self.rev)
+
+    def _repr_upgrade_req(self):
+        return "%s, current_rev = %s" % (self.type, self.rev)
+
+    def _repr_upgrade_patch(self):
+        return "%s, from_rev = %s, to_rev = %s, size = %s" % \
+            (self.type, self.from_rev, self.to_rev, len(self.patch))
 
     def _repr_topo_pong(self):
         return "%6s, %s" % (self.type, self.recipient_addr)
@@ -210,14 +263,34 @@ class Message(object):
         message = struct.pack(cls.TOPO_PONG_FORMAT, recipient_addr)
         return cls(cls.TOPO_PONG, message)
 
+    @classmethod
+    def create_upgrade_flood(cls, rev):
+        return cls(cls.UPGRADE_FLOOD, rev)
+
+    @classmethod
+    def create_upgrade_req(cls, rev):
+        return cls(cls.UPGRADE_REQ, rev)
+
+    @classmethod
+    def create_upgrade_patch(cls, from_rev, to_rev, patch):
+        return cls(cls.UPGRADE_PATCH, "".join([from_rev, to_rev, patch]))
+
 
 class Mode(object):
+    # The normal mode that the nodes run in.
     NORMAL = 'normal'
+
+    # Utility modes that help ease management of the nodes.
     PING = 'ping'
     TIME = 'time'
     POWER = 'power'
+
+    # TOPO mode: Get topology information about nodes.
     TOPO_REQ = 'toporeq'
     TOPO_FLOOD = 'topoflood'
+
+    # Upgrade mode: Request and send git patches to nodes.
+    UPGRADE = 'upgrade'
 
 
 class Pong(net.layers.application.Application):
@@ -229,6 +302,7 @@ class Pong(net.layers.application.Application):
     def __init__(self, addr):
         super(Pong, self).__init__(addr)
         self.mode = None
+        self.rev = git.git.get_current_revision()
         self.xbee = None
         self.topo_pongs = {}
 
@@ -249,6 +323,9 @@ class Pong(net.layers.application.Application):
         if self.mode is Mode.NORMAL:
             self.start_normal()
 
+    def set_rev(self, rev):
+        self.rev = rev
+
     def start_normal(self):
         time.sleep(10)
         self.send_time_req_delayed()
@@ -260,6 +337,7 @@ class Pong(net.layers.application.Application):
         self._handle_incoming_inner(message, pdu.source_addr)
 
     def _handle_incoming_inner(self, message, sender_addr):
+        # TOPO related messages.
         if message.is_topo_req():
             self.send_topo_res_delayed()
             self.send_topo_ping()
@@ -290,6 +368,38 @@ class Pong(net.layers.application.Application):
             if self.xbee is not None:
                 self.xbee.set_power_level(message.power_level)
             self.send_pong()
+
+        # UPGRADE related messages.
+        if message.is_upgrade_flood() and self.mode != Mode.UPGRADE:
+            if git.git.has_revision(message.rev):
+                self.send_pong(dest_addr=sender_addr)
+            else:
+                self.send_upgrade_req(dest_addr=sender_addr)
+
+        if message.is_upgrade_patch() and self.mode == Mode.NORMAL:
+            # Check if patch is applicable for this node.
+            if message.from_rev == git.git.get_current_revision():
+                git.git.apply_patch(message.patch)
+                self.send_pong(dest_addr=sender_addr)
+
+        if message.is_upgrade_req() and self.mode == Mode.UPGRADE:
+            patch = git.git.get_patch_for_revision(from_rev=message.rev, to_rev=self.rev)
+            upgrade_patch = Message.create_upgrade_patch(
+                from_rev=message.rev, to_rev=self.rev, patch=patch)
+            self._send_message(upgrade_patch, dest_addr=net.layers.base.FLOOD_ADDRESS)
+
+    def send_upgrade_req(self, dest_addr):
+        current_rev = git.git.get_current_revision()
+        upgrade_req = Message.create_upgrade_req(current_rev)
+        self._send_message(upgrade_req, dest_addr=dest_addr)
+
+    def send_upgrade_flood(self):
+        upgrade_flood = Message.create_upgrade_flood(self.rev)
+        self._send_message(upgrade_flood, dest_addr=net.layers.base.FLOOD_ADDRESS)
+
+    def send_upgrade_patch(self, rev):
+        upgrade_flood = Message.create_upgrade_flood(self.rev)
+        self._send_message(upgrade_flood, dest_addr=net.layers.base.FLOOD_ADDRESS)
 
     def _get_neighbours(self):
         # Determine neighbours
@@ -358,17 +468,14 @@ class Pong(net.layers.application.Application):
         ping = Message.create_ping()
         self._send_message(ping)
 
-    def send_pong(self):
+    def send_pong(self, dest_addr=None):
         time_tuple = TimeSpec.get_current_time()
         current_rev = git.git.get_current_revision()
         pong = Message.create_pong(time_tuple, current_rev)
-        self._send_message(pong)
+        self._send_message(pong, dest_addr=dest_addr)
 
     def send_pong_flood(self):
-        time_tuple = TimeSpec.get_current_time()
-        current_rev = git.git.get_current_revision()
-        pong = Message.create_pong(time_tuple, current_rev)
-        self._send_message(pong, dest_addr=net.layers.base.FLOOD_ADDRESS)
+        self.send_pong(dest_addr=net.layers.base.FLOOD_ADDRESS)
 
     def send_time_set(self):
         time_set = Message.create_time_set(TimeSpec.get_current_time())
@@ -387,6 +494,7 @@ class Pong(net.layers.application.Application):
 def main(args):
     app = Pong.create_and_run_application()
     app.set_mode(args.mode)
+    app.set_rev(args.rev or git.git.get_current_revision())
 
     import serial
     import xbee
@@ -422,6 +530,10 @@ def main(args):
             app.send_topo_flood()
             time.sleep(2)
 
+        if once and args.mode == Mode.UPGRADE:
+            once = False
+            app.send_upgrade_flood()
+
         time.sleep(1)
 
 
@@ -429,11 +541,15 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Pong Application')
     parser.add_argument('--mode', '-m', type=str, default=Mode.NORMAL,
                         choices=[Mode.NORMAL, Mode.PING, Mode.TIME, Mode.POWER,
-                            Mode.TOPO_REQ, Mode.TOPO_FLOOD])
+                            Mode.TOPO_REQ, Mode.TOPO_FLOOD, Mode.UPGRADE])
+    # Power Level.
     parser.add_argument('--value', type=int, default=4, choices=[0,1,2,3,4])
+    # XBee configuration
     parser.add_argument('-s', '--port', default='/dev/ttyUSB0',
                         help='Serial port')
     parser.add_argument('-b', '--baudrate', default=57600, type=int,
                         help='Baudrate')
+    # Upgrade mode.
+    parser.add_argument("--rev", type=str, help="Revision to upgrade to.")
     args = parser.parse_args()
     main(args)
