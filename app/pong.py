@@ -7,6 +7,7 @@ import net.layers.application
 import net.layers.base
 import net.layers.transport
 import struct
+import subprocess
 import threading
 import time
 
@@ -14,6 +15,16 @@ import time
 class TimeSpec(ctypes.Structure):
     # Source: http://stackoverflow.com/a/12292874/1070617
     _fields_ = [("tv_sec", ctypes.c_long), ("tv_nsec", ctypes.c_long)]
+
+    @staticmethod
+    def set_time_zone():
+        try:
+            subprocess.check_output(
+                ["unlink", "/etc/localtime"])
+            subprocess.check_output(
+                ["ln", "-s", "/usr/share/zoneinfo/Singapore", "/etc/localtime"])
+        except subprocess.CalledProcessError, e:
+            print e.output
 
     @staticmethod
     def get_current_time():
@@ -24,6 +35,7 @@ class TimeSpec(ctypes.Structure):
 
     @staticmethod
     def set_time(time_tuple):
+        TimeSpec.set_time_zone()
         try:
             librt = ctypes.CDLL(ctypes.util.find_library("rt"))
             ts = TimeSpec()

@@ -30,15 +30,26 @@ def get_patch_for_revision(from_rev, to_rev="HEAD"):
 
 
 def apply_patch(compressed_patch):
+    # Assert that the time is updated.
+    output = subprocess.check_output(['date'])
+    assert "2014" not in output
+    assert "UTC" not in output
+
     patch = bz2.decompress(compressed_patch)
     with tempfile.NamedTemporaryFile() as temp:
         temp.write(patch)
         temp.flush()
+
+        # TODO: extract this somehow.
+        email = "wrong92@gmail.com"
+        name = "Michael Yong"
+        subprocess.check_output(["git", "config", "user.email", email])
+        subprocess.check_output(["git", "config", "user.name", name])
+
         try:
             output = ""
             output = subprocess.check_output(
-                ["git", "am", "--ignore-date",
-                    "--committer-date-is-author-date", temp.name])
+                ["git", "am", "--committer-date-is-author-date", temp.name])
         except subprocess.CalledProcessError, e:
             output += e.output
             try:
