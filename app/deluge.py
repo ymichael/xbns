@@ -444,49 +444,54 @@ class Deluge(net.layers.application.Application):
                 return
 
     def _process_adv(self, data_unit, sender_addr):
+        # Only process ADV in MAINTAIN state.
+        if self.state != self.STATE_CLS.MAINTAIN:
+            return
+
+        if data_unit.version == self.version:
+            # Update total_pages.
+            self.total_pages = data_unit.total_pages
+
         # Check if network is consistent.
+        if data_unit.version == self.version and \
+                data_unit.largest_completed_page == len(self.complete_pages):
+            # Network is consistent if summary overheard is similar to self.
+            self.adv_overheard += 1
+            return
+
+        # Network is not consistent.
+        self._set_inconsistent()
+
+        # Check if we are ahead, if so, immediately start next round.
+        if data_unit.version < self.version:
+            self._start_next_round(delay=0)
+            return
+
+        # Check if we are behind a version, if so, update various properties.
         if data_unit.version > self.version:
             self.version = data_unit.version
             self.buffering_pages = {}
             self.complete_pages = []
             self.total_pages = data_unit.total_pages
-        elif data_unit.version < self.version:
-            if self.state == self.STATE_CLS.MAINTAIN:
-                # Network is inconsistent.
-                self._set_inconsistent()
-                self._start_next_round(delay=0)
-            return
-        else:
-            # Update total_pages.
-            self.total_pages = data_unit.total_pages
 
-        if data_unit.largest_completed_page == len(self.complete_pages):
-            # Network is consistent if summary overheard is similar to self.
-            self.adv_overheard += 1
-            return
-
+        # Check if there is a page we need.
         if data_unit.largest_completed_page > len(self.complete_pages):
             # M5: transit to RX unless, a REQ for a page we can fulfill was
             # overheard within the last 2 rounds OR a DATA for a page we want/
             # can fulfil was overheard in the last round.
-            if self.state == self.STATE_CLS.MAINTAIN:
-                overheard_data_recently = self._last_data_packet_received[0] and \
-                    (datetime.datetime.now() - self._last_data_packet_received[0]).total_seconds() <= self.t and \
-                    self._last_data_packet_received[1].version == self.version
-                overheard_req_recently = self._last_req_packet_recieved[0] and \
-                    (datetime.datetime.now() - self._last_req_packet_recieved[0]).total_seconds() <= (2 * self.t)
-                if overheard_req_recently or overheard_data_recently:
-                    self.log("SUPPRESS TRANSITION INTO RX. %s, %s" % (overheard_req_recently, overheard_data_recently))
-                else:
-                    self._enter_rx(sender_addr)
-                self._set_inconsistent()
-                self._start_next_round(delay=0)
-                return
+            now = datetime.datetime.now()
+            overheard_data_recently = self._last_data_packet_received[0] and \
+                (now - self._last_data_packet_received[0]).total_seconds() <= self.t and \
+                self._last_data_packet_received[1].version == self.version
+            overheard_req_recently = self._last_req_packet_recieved[0] and \
+                (now - self._last_req_packet_recieved[0]).total_seconds() <= (2 * self.t)
+            if overheard_req_recently or overheard_data_recently:
+                self.log("SUPPRESS TRANSITION INTO RX. %s, %s" % (overheard_req_recently, overheard_data_recently))
+            else:
+                self._enter_rx(sender_addr)
 
-        # Network is inconsistent.
-        if self.state == self.STATE_CLS.MAINTAIN:
-            self._set_inconsistent()
-            self._start_next_round(delay=0)
+        # Start next round immediately.
+        self._start_next_round(delay=0)
 
     def _process_req(self, data_unit):
         # React to REQ, transit to TX state if we have the requested page.
