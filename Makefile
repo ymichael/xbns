@@ -34,6 +34,9 @@ toporeq:
 topoflood:
 	PYTHONPATH=. python app/pong.py -m topoflood --port=$(SERIALPORT)
 
+upgrade:
+	PYTHONPATH=. python app/pong.py -m upgrade --port=$(SERIALPORT)
+
 ping:
 	PYTHONPATH=. python app/pong.py -m ping --port=$(SERIALPORT)
 
