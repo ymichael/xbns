@@ -2,6 +2,7 @@ import argparse
 import ctypes
 import ctypes.util
 import datetime
+import git.git
 import net.layers.application
 import net.layers.base
 import net.layers.transport
@@ -57,6 +58,8 @@ class Message(object):
     TOPO_PONG =  10  # Responds to neighbours TOPO_PING
 
     TIME_FORMAT = "HBBBBBH"
+    TIME_FORMAT_SIZE = struct.calcsize(TIME_FORMAT)
+    CURRENT_REV_SIZE = 7 # `git rev-parse --short HEAD`
     PL_FORMAT = "H"
     TOPO_PONG_FORMAT = "H"
 
@@ -70,7 +73,11 @@ class Message(object):
         if self.is_topo_res(): self._init_topo_res()
 
     def _init_pong(self):
-        self.time_tuple = struct.unpack(self.TIME_FORMAT, self.message)
+        tfs = self.TIME_FORMAT_SIZE
+        crs = self.CURRENT_REV_SIZE
+        self.time_tuple = self.message[:tfs]
+        self.time_tuple = struct.unpack(self.TIME_FORMAT, self.time_tuple)
+        self.current_rev = self.message[tfs:tfs + crs]
 
     def _init_topo_pong(self):
         self.recipient_addr = \
@@ -143,7 +150,7 @@ class Message(object):
         return "%6s, %s" % (self.type, self.neighbours)
 
     def _repr_pong(self):
-        return "%6s, %s" % (self.type, self.time_tuple)
+        return "%6s, %s, %s" % (self.type, self.time_tuple, self.current_rev)
 
     def _repr_time_set(self):
         return "%6s, %s" % (self.type, self.time_tuple)
@@ -172,9 +179,9 @@ class Message(object):
         return cls(cls.PL_SET, message)
 
     @classmethod
-    def create_pong(cls, time_tuple):
+    def create_pong(cls, time_tuple, current_revision):
         message = struct.pack(cls.TIME_FORMAT, *time_tuple)
-        return cls(cls.PONG, message)
+        return cls(cls.PONG, message + current_revision)
 
     @classmethod
     def create_time_set(cls, time_tuple):
@@ -352,11 +359,15 @@ class Pong(net.layers.application.Application):
         self._send_message(ping)
 
     def send_pong(self):
-        pong = Message.create_pong(TimeSpec.get_current_time())
+        time_tuple = TimeSpec.get_current_time()
+        current_rev = git.git.get_current_revision()
+        pong = Message.create_pong(time_tuple, current_rev)
         self._send_message(pong)
 
     def send_pong_flood(self):
-        pong = Message.create_pong(TimeSpec.get_current_time())
+        time_tuple = TimeSpec.get_current_time()
+        current_rev = git.git.get_current_revision()
+        pong = Message.create_pong(time_tuple, current_rev)
         self._send_message(pong, dest_addr=net.layers.base.FLOOD_ADDRESS)
 
     def send_time_set(self):
