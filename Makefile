@@ -62,6 +62,9 @@ test:
 setup:
 	./bin/setup.sh
 
+restart:
+	./bin/restart.sh
+
 clearlogs:
 	find log/ -type f | grep -v py | xargs rm
 
