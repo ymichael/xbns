@@ -487,6 +487,16 @@ class Deluge(net.layers.application.Application):
                 (now - self._last_req_packet_recieved[0]).total_seconds() <= (2 * self.t)
             if overheard_req_recently or overheard_data_recently:
                 self.log("SUPPRESS TRANSITION INTO RX. %s, %s" % (overheard_req_recently, overheard_data_recently))
+                # NOTE: For analysis on why suppression occurred.
+                import pprint
+                since_last_data = self._last_data_packet_received[0] and now - self._last_data_packet_received[0]
+                since_last_req = self._last_req_packet_recieved[0] and now - self._last_req_packet_recieved[0]
+                why_suppress = [
+                    'now', now, 't', self.t,
+                    'last_data', self._last_data_packet_received, since_last_data,
+                    'last_req', self._last_req_packet_recieved, since_last_req,
+                ]
+                pprint.pprint(why_suppress)
             else:
                 self._enter_rx(sender_addr)
 
