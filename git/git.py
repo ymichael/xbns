@@ -22,8 +22,9 @@ def has_revision(rev):
 
 def get_patch_for_revision(from_rev, to_rev="HEAD"):
     output = subprocess.check_output(
-        ["git", "format-patch", "..".join([from_rev, to_rev]),
-            "--stdout", "-k", "-U0", "--shortstat"])
+        ["git", "format-patch",
+            "--stdout", "-k", "-U1", "--shortstat",
+            "..".join([from_rev, to_rev])])
     return bz2.compress(output)
 
 
@@ -31,18 +32,26 @@ def apply_patch(compressed_patch):
     patch = bz2.decompress(compressed_patch)
     with tempfile.NamedTemporaryFile() as temp:
         temp.write(patch)
+        temp.flush()
         try:
+            output = ""
             output = subprocess.check_output(["git", "am", temp.name])
-        except subprocess.CalledProcessError:
-            # Abort the apply patch (am)
-            subprocess.check_output(["git", "am", "--abort"])
+        except subprocess.CalledProcessError, e:
+            output += e.output
+            try:
+                # Abort the apply patch (am)
+                output += subprocess.check_output(["git", "am", "--abort"])
+            except subprocess.CalledProcessError, e:
+                output += e.output
         return output
 
 
 def main():
     print get_current_revision()
     print has_revision("696b253")
-    print apply_patch(get_patch_for_revision("696b253"))
+    # patch = get_patch_for_revision("b529507")
+    # subprocess.check_output(["git", "reset", "--hard", "HEAD^"])
+    # apply_patch(patch)
 
 
 if __name__ == '__main__':
