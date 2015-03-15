@@ -2,6 +2,7 @@ import coding.ff
 import coding.message
 import deluge
 import itertools
+import math
 import random
 import struct
 import threading
@@ -135,9 +136,11 @@ class RatelessDeluge(deluge.Deluge):
                 coded_data = coeffs.dot(self.complete_pages[page])
                 data = self.PDU_CLS.create_data_packet(
                     self.version, page, list(coeffs.iter_row(0)), list(coded_data.iter_row(0)))
-                self._send_pdu(data)
-                # Sleep for a short amount of time.
-                time.sleep(.02)
+                sent_data = self._send_pdu(data)
+                # NOTE: sleep for a short amount of time. (.2s per frame)
+                # Instead of getting an acknowledgement from the networking stack
+                # that the message has been sent.
+                time.sleep(math.ceil(len(sent_data) / 76.0) * .02)
 
         self._change_state(self.STATE_CLS.MAINTAIN)
 
