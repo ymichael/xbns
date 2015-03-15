@@ -45,5 +45,6 @@ def main():
     print has_revision("696b253")
     print apply_patch(get_patch_for_revision("696b253"))
 
+
 if __name__ == '__main__':
     main()

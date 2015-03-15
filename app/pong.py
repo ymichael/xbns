@@ -315,6 +315,9 @@ class Pong(net.layers.application.Application):
         self._topo_res_timer = None
         self._topo_flood_timer = None
 
+        # Other states
+        self._sent_upgrade_patches = {}
+
     def set_xbee(self, xbee):
         self.xbee = xbee
 
@@ -383,9 +386,14 @@ class Pong(net.layers.application.Application):
                 self.send_pong(dest_addr=sender_addr)
 
         if message.is_upgrade_req() and self.mode == Mode.UPGRADE:
+            # Check if we've sent the patch before
+            # TODO: Check the time since sent, perhaps resend after x secs?
+            if (message.rev, self.rev) in self._sent_upgrade_patches:
+                return
             patch = git.git.get_patch_for_revision(from_rev=message.rev, to_rev=self.rev)
             upgrade_patch = Message.create_upgrade_patch(
                 from_rev=message.rev, to_rev=self.rev, patch=patch)
+            self._sent_upgrade_patches[(message.rev, self.rev)] = datetime.datetime.now()
             self._send_message(upgrade_patch, dest_addr=net.layers.base.FLOOD_ADDRESS)
 
     def send_upgrade_req(self, dest_addr):
@@ -394,10 +402,6 @@ class Pong(net.layers.application.Application):
         self._send_message(upgrade_req, dest_addr=dest_addr)
 
     def send_upgrade_flood(self):
-        upgrade_flood = Message.create_upgrade_flood(self.rev)
-        self._send_message(upgrade_flood, dest_addr=net.layers.base.FLOOD_ADDRESS)
-
-    def send_upgrade_patch(self, rev):
         upgrade_flood = Message.create_upgrade_flood(self.rev)
         self._send_message(upgrade_flood, dest_addr=net.layers.base.FLOOD_ADDRESS)
 
