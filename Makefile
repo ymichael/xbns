@@ -61,7 +61,6 @@ setup:
 # rsync repository with beaglebone (w/o makefile)
 rsync:
 	rsync -avz \
-		--exclude=.git \
 		--exclude=addr.txt \
 		--exclude=*.txt \
 		--exclude=.venv \
