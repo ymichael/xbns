@@ -22,7 +22,7 @@ def has_revision(rev):
 
 def get_patch_for_revision(from_rev, to_rev="HEAD"):
     output = subprocess.check_output(
-        ["git", "format-patch", "..".join([from_rev, to_rev]), 
+        ["git", "format-patch", "..".join([from_rev, to_rev]),
             "--stdout", "-k", "-U0", "--shortstat"])
     return bz2.compress(output)
 
@@ -36,7 +36,6 @@ def apply_patch(compressed_patch):
         except subprocess.CalledProcessError:
             # Abort the apply patch (am)
             subprocess.check_output(["git", "am", "--abort"])
-            output = None
         return output
 
 
