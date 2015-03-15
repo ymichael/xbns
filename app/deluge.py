@@ -321,10 +321,8 @@ class Deluge(net.layers.application.Application):
         if self.state == self.STATE_CLS.MAINTAIN:
             self._round_maintain()
         elif self.state == self.STATE_CLS.RX:
-            self._set_inconsistent()
             self._round_rx()
         elif self.state == self.STATE_CLS.TX:
-            self._set_inconsistent()
             self._round_tx()
 
     def _round_maintain(self):
