@@ -431,6 +431,15 @@ class Deluge(net.layers.application.Application):
         if self._stopped:
             return
 
+        # Update state if applicable (only in MAINTAIN state since we might be
+        # in the midst of RX/TX)
+        # TODO: More complext but if in RX/TX, stop requesting/transmitting.
+        if self.state == self.STATE_CLS.MAINTAIN and \
+                data_unit.version > self.version:
+            self.version = data_unit.version
+            self.buffering_pages = {}
+            self.complete_pages = []
+
         # Record state regarding overheard REQ and DATA packets
         if data_unit.is_req() or data_unit.is_data():
             self.req_and_data_overheard += 1
@@ -485,13 +494,6 @@ class Deluge(net.layers.application.Application):
         if data_unit.version < self.version:
             self._start_next_round(delay=0)
             return
-
-        # Check if we are behind a version, if so, update various properties.
-        if data_unit.version > self.version:
-            self.version = data_unit.version
-            self.buffering_pages = {}
-            self.complete_pages = []
-            self.total_pages = data_unit.total_pages
 
         # Check if there is a page we need.
         if data_unit.largest_completed_page > len(self.complete_pages):
