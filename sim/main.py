@@ -105,7 +105,7 @@ def main(args):
         data = args.file.read()
         args.file.close()
         for addr in args.seed:
-            nodes[addr].get_application(APP_CLS.ADDRESS).new_version(1, data)
+            nodes[addr].get_application(APP_CLS.ADDRESS).new_version(2, data)
 
     # Don't terminate.
     while True:
