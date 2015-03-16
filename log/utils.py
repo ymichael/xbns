@@ -223,15 +223,11 @@ def pprint_packets_sent(packets_sent):
 
 
 def pprint_completion_times(ct):
-    nodes = ct.keys()
-    total_pages = len(ct[nodes[0]]) - 1
-
-    # sort nodes by start times
-    start_times = {}
-    for n in nodes:
-        if ct[n].get(0):
-            start_times[n] = ct[n][0]
-    nodes = sorted(start_times.keys(), key=lambda n: start_times.get(n))
+    # sort nodes by times (page0, page1, ...)
+    total_pages = len(ct[ct.keys()[0]]) - 1
+    def key_func(node):
+        return [ct[node][x] for x in xrange(total_pages + 1)]
+    nodes = sorted(ct.keys(), key=key_func)
     seed = nodes[0]
 
     # Order events to better visualize pipelining.
