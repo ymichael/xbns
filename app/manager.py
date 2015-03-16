@@ -62,6 +62,7 @@ class ManagerPDU(object):
         self.t_min = x[6]
         self.t_max = x[7]
         self.delay = x[8]
+        self.frame_delay = x[9]
 
     def is_ctrl(self):
         return self.msg_type == self.CTRL
@@ -96,18 +97,19 @@ class ManagerPDU(object):
         return self.type
 
     def _repr_ctrl(self):
-        return "%4s, %s, d = %s/%s, r = %s/%s k = %s, t_min = %s, t_max = %s, delay = %s" % \
+        return "%4s, %s, d = %s/%s, r = %s/%s k = %s, t_min = %s, t_max = %s, delay = %s, frame_delay = %s" % \
             (self.type, Protocol.get_name(self.protocol),
                 self.d_page_size, self.d_packet_size,
                 self.r_page_size, self.r_packet_size,
-                self.k, self.t_min, self.t_max, self.delay)
+                self.k, self.t_min, self.t_max, self.delay, self.frame_delay)
 
     @classmethod
     def create_ctrl_packet(cls,
             protocol=Protocol.DELUGE,
             d_page_size=1020, d_packet_size=60,
             r_page_size=900, r_packet_size=45,
-            k=1, t_min=1, t_max=60 * 10, delay=5):
+            k=1, t_min=1, t_max=60 * 10, delay=5,
+            frame_delay=.02):
         assert d_page_size % d_packet_size == 0
         assert r_page_size % r_packet_size == 0
         assert t_min <= t_max
@@ -116,7 +118,7 @@ class ManagerPDU(object):
             [protocol,
                 d_page_size, d_packet_size,
                 r_page_size, r_packet_size,
-                k, t_min, t_max, delay])
+                k, t_min, t_max, delay, frame_delay])
         return cls(cls.CTRL, message)
 
     @classmethod
@@ -210,6 +212,7 @@ class Manager(net.layers.application.Application):
         self.T_MIN = data_unit.t_min
         self.T_MAX = data_unit.t_max
         self.DELAY = data_unit.delay
+        self.FRAME_DELAY = data_unit.frame_delay
 
         # Update the two protocols.
         self._update_deluge()
@@ -225,6 +228,7 @@ class Manager(net.layers.application.Application):
         self.deluge.T_MIN = self.T_MIN
         self.deluge.T_MAX = self.T_MAX
         self.deluge.K = self.K
+        self.deluge.FRAME_DELAY = self.FRAME_DELAY
         self.deluge._reset_round_state()
 
     def _update_rateless(self):
@@ -237,6 +241,7 @@ class Manager(net.layers.application.Application):
         self.rateless.T_MIN = self.T_MIN
         self.rateless.T_MAX = self.T_MAX
         self.rateless.K = self.K
+        self.rateless.FRAME_DELAY = self.FRAME_DELAY
         self.rateless._reset_round_state()
 
         rateless_deluge.ROWS_REQUIRED = self.R_PACKETS_PER_PAGE
@@ -300,7 +305,8 @@ def main(args):
         k=args.k,
         t_min=args.tmin,
         t_max=args.tmax,
-        delay=args.delay)
+        delay=args.delay,
+        frame_delay=args.framedelay)
     manager._update_ctrl_parameters(control_pdu)
 
     # Start.
@@ -353,5 +359,7 @@ if __name__ == '__main__':
 
     config.add_argument('--delay', type=int, default=3,
                         help='The number of seconds to wait before starting the protocol.')
+    config.add_argument('--framedelay', type=float, default=.02,
+                        help='The time taken for a frame to leave the xbee after it is sent.')
     args = parser.parse_args()
     main(args)

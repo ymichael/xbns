@@ -159,6 +159,9 @@ class Deluge(net.layers.application.Application):
     # Threshold of overheard packets for message suppression.
     K = 1
 
+    # Time taken for a single frame to leave the node #send is called.
+    FRAME_DELAY = .02
+
     # Classes to use
     PDU_CLS = DelugePDU
     STATE_CLS = DelugeState
@@ -408,7 +411,7 @@ class Deluge(net.layers.application.Application):
             # NOTE: sleep for a short amount of time. (.2s per frame)
             # Instead of getting an acknowledgement from the networking stack
             # that the message has been sent.
-            time.sleep(math.ceil(len(sent_data) / 76.0) * .02)
+            time.sleep(math.ceil(len(sent_data) / 76.0) * self.FRAME_DELAY)
         self._change_state(self.STATE_CLS.MAINTAIN)
 
     def _handle_incoming(self, data):

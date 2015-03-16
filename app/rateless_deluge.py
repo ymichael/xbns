@@ -140,7 +140,7 @@ class RatelessDeluge(deluge.Deluge):
                 # NOTE: sleep for a short amount of time. (.2s per frame)
                 # Instead of getting an acknowledgement from the networking stack
                 # that the message has been sent.
-                time.sleep(math.ceil(len(sent_data) / 76.0) * .02)
+                time.sleep(math.ceil(len(sent_data) / 76.0) * self.FRAME_DELAY)
 
         self._change_state(self.STATE_CLS.MAINTAIN)
 
