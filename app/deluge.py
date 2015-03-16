@@ -284,7 +284,9 @@ class Deluge(net.layers.application.Application):
         # from the MAINTAIN to the RX state.
         self._page_to_req = None
 
-        # The node that sent the ADV that triggered entry into the RX state.
+        # The latest node that sent an ADV that fulfills the `_page_to_req`.
+        # Initially, when changing from MAINTAIN to RX, this is the node that
+        # triggered entry into the RX state.
         self._rx_source = None
 
         # The number of REQ sent since entering the RX state.
@@ -457,6 +459,12 @@ class Deluge(net.layers.application.Application):
     def _process_adv(self, data_unit, sender_addr):
         # Only process ADV in MAINTAIN state.
         if self.state != self.STATE_CLS.MAINTAIN:
+            # If in RX state, maybe update rx_source if ADV can fulfill the
+            # page currently requesting.
+            if self.state == self.STATE_CLS.RX and \
+                    data_unit.version == self.version and \
+                    data_unit.largest_completed_page >= self._page_to_req:
+                self._rx_source = sender_addr
             return
 
         if data_unit.version == self.version:
