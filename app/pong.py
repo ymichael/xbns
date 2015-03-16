@@ -10,9 +10,8 @@ import threading
 import time
 import utils.cli
 import utils.git
+import utils.timespec
 import xbee
-
-from utils.timespec import TimeSpec
 
 
 class Message(object):
@@ -360,7 +359,7 @@ class Pong(net.layers.application.Application):
 
         # Only set time in NORMAL mode.
         if message.is_time_set():
-            TimeSpec.set_time(message.time_tuple)
+            utils.timespec.TimeSpec.set_time(message.time_tuple)
             self._time_is_set = True
             self.send_pong_flood()
 
@@ -481,7 +480,7 @@ class Pong(net.layers.application.Application):
         self._send_message(ping)
 
     def send_pong(self, addition_msg="", dest_addr=None):
-        time_tuple = TimeSpec.get_current_time()
+        time_tuple = utils.timespec.TimeSpec.get_current_time()
         current_rev = utils.git.get_current_revision()
         pong = Message.create_pong(
             time_tuple, current_rev, addition_msg=addition_msg)
@@ -493,7 +492,8 @@ class Pong(net.layers.application.Application):
             dest_addr=net.layers.base.FLOOD_ADDRESS)
 
     def send_time_set(self):
-        time_set = Message.create_time_set(TimeSpec.get_current_time())
+        time_set = Message.create_time_set(
+            utils.timespec.TimeSpec.get_current_time())
         self._send_message(time_set, dest_addr=net.layers.base.FLOOD_ADDRESS)
 
     def send_pl_set(self, value):
