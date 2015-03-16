@@ -183,7 +183,7 @@ def get_stats(lines):
 
 
 def ppprint_timings(start_times, final_times, time_taken):
-    order = [node for t, node in sorted((t, node) for node, t in start_times.iteritems())]
+    order = [node for t, node in sorted((t, node) for node, t in time_taken.iteritems())]
     rows = []
     for node in order:
         row = [node]
