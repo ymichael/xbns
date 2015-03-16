@@ -387,7 +387,7 @@ class Pong(net.layers.application.Application):
             if message.from_rev == utils.git.get_current_revision():
                 output = utils.git.apply_patch(message.patch)
                 self.log("Applying Patch: %s" % output)
-                self.send_pong(addition_msg=output[:20], dest_addr=sender_addr)
+                self.send_pong(addition_msg=output[:50], dest_addr=sender_addr)
                 self.restart_and_reload_processes()
 
         if message.is_upgrade_req() and self.mode == Mode.UPGRADE:
@@ -401,9 +401,9 @@ class Pong(net.layers.application.Application):
             self._sent_upgrade_patches[(message.rev, self.rev)] = datetime.datetime.now()
             self._send_message(upgrade_patch, dest_addr=net.layers.base.FLOOD_ADDRESS)
 
-        if message.is_make() and self.mode != Mode.NORMAL:
+        if message.is_make() and self.mode != Mode.MAKE:
             output = utils.cli.call(["make", message.target])
-            self.send_pong(addition_msg=output[:20], dest_addr=sender_addr)
+            self.send_pong(addition_msg=output[:50], dest_addr=sender_addr)
 
     def restart_and_reload_processes(self):
         # Restart manager and xbns.
