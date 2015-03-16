@@ -226,7 +226,7 @@ def pprint_completion_times(ct):
     nodes = ct.keys()
     total_pages = len(ct[nodes[0]]) - 1
 
-    # sort nodes by start times
+    # Get seed.
     start_times = {}
     for n in nodes:
         if ct[n].get(0):
@@ -240,6 +240,8 @@ def pprint_completion_times(ct):
     for page in xrange(total_pages + 1):
         for node in nodes:
             t = (ct[node][page] - ct[seed][0]).total_seconds()
+            # Round unless we get 0, then take the ceiling.
+            t = round(t) or math.ceil(t)
             events.append((t, node, page))
     events.sort()
 
@@ -247,6 +249,11 @@ def pprint_completion_times(ct):
         t, node, page = events[i]
         # store a 2 element list (time_elapsed, event_order)
         time_elapsed[(node, page)] = [t, i]
+
+    # Sort nodes by (page0, page1, ...)
+    def key_func(n):
+        return [time_elapsed[(n, p)][0] for p in xrange(total_pages + 1)]
+    nodes = sorted(nodes, key=key_func)
 
     rows = []
     for page in xrange(total_pages + 1):
