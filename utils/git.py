@@ -4,15 +4,13 @@ import tempfile
 
 
 def get_current_revision():
-    output = cli.call(["git", "rev-parse", "--short", "HEAD"])
-    rev = output.strip()
+    rev = cli.call(["git", "rev-parse", "--short", "HEAD"])
     assert len(rev) == 7
     return rev
 
 
 def has_revision(rev):
-    output = cli.call(["git", "cat-file", "-t", rev])
-    return output.strip() == "commit"
+    return cli.call(["git", "cat-file", "-t", rev]) == "commit"
 
 
 def get_patch_for_revision(from_rev, to_rev="HEAD"):

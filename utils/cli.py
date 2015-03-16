@@ -11,5 +11,5 @@ def call(args, on_error=None):
     except subprocess.CalledProcessError, e:
         output = e.output
         if on_error is not None: call(on_error)
-    return output
+    return output.strip()
 
