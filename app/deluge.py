@@ -178,7 +178,12 @@ class Deluge(net.layers.application.Application):
         assert self.get_data() == data
         self.total_pages = len(self.complete_pages)
         self.set_data_hash(self.get_data())
-        self._set_inconsistent()
+
+        # Only set inconsistent if version is greater than 1. The protocol is
+        # started with v1 data so every node is in the "steady state" (also
+        # allows more consistent experiments to be conducted).
+        if version > 1:
+            self._set_inconsistent()
         if start:
             self._start_next_round(delay=0)
 
