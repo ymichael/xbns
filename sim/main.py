@@ -19,6 +19,7 @@ PROTOCOLS = {
     'toporeq': app.pong.Pong,
     'topoflood': app.pong.Pong,
     'upgrade': app.pong.Pong,
+    'make': app.pong.Pong,
 }
 
 
@@ -85,6 +86,12 @@ def main(args):
             nodes[addr].get_application(APP_CLS.ADDRESS).set_mode(app.pong.Mode.UPGRADE)
             nodes[addr].get_application(APP_CLS.ADDRESS).send_upgrade_flood()
 
+    if args.protocol == 'make':
+        assert args.target
+        for addr in args.seed:
+            nodes[addr].get_application(APP_CLS.ADDRESS).set_mode(app.pong.Mode.MAKE)
+            nodes[addr].get_application(APP_CLS.ADDRESS).send_make_flood(args.target)
+
     if args.protocol == 'toporeq':
         for addr in args.seed:
             nodes[addr].get_application(APP_CLS.ADDRESS).send_topo_req()
@@ -144,6 +151,9 @@ if __name__ == '__main__':
                         help='Rateless: The number of bytes in each page.')
     parser.add_argument('--rpacketsize', type=int, default=45,
                         help='Rateless: The number of bytes in each packet.')
+
+    # Make
+    parser.add_argument('--target', type=str, help='Makefile target.')
 
     args = parser.parse_args()
     main(args)

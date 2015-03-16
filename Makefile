@@ -37,6 +37,9 @@ topoflood:
 upgrade:
 	PYTHONPATH=. python app/pong.py -m upgrade --port=$(SERIALPORT)
 
+make:
+	PYTHONPATH=. python app/pong.py -m make --port=$(SERIALPORT) --target=$(TARGET)
+
 ping:
 	PYTHONPATH=. python app/pong.py -m ping --port=$(SERIALPORT)
 
@@ -58,6 +61,9 @@ sim:
 
 test:
 	PYTHONPATH=. nosetests
+
+yo:
+	echo YO
 
 setup:
 	./bin/setup.sh

@@ -52,6 +52,9 @@ class Message(object):
     UPGRADE_REQ = 12
     UPGRADE_PATCH = 13
 
+    # Make command. Runs a makefile target remotely.
+    MAKE = 14
+
     TIME_FORMAT = "HBBBBBH"
     TIME_FORMAT_SIZE = struct.calcsize(TIME_FORMAT)
     REV_SIZE = 7 # `git rev-parse --short HEAD`
@@ -69,6 +72,7 @@ class Message(object):
         if self.is_upgrade_flood(): self._init_upgrade_flood()
         if self.is_upgrade_req(): self._init_upgrade_req()
         if self.is_upgrade_patch(): self._init_upgrade_patch()
+        if self.is_make(): self._init_make()
 
     def _init_pong(self):
         tfs = self.TIME_FORMAT_SIZE
@@ -76,6 +80,7 @@ class Message(object):
         self.time_tuple = self.message[:tfs]
         self.time_tuple = struct.unpack(self.TIME_FORMAT, self.time_tuple)
         self.current_rev = self.message[tfs:tfs + crs]
+        self.addition_msg = self.message[tfs + crs:]
 
     def _init_topo_pong(self):
         self.recipient_addr = \
@@ -101,6 +106,9 @@ class Message(object):
         self.from_rev = self.message[:self.REV_SIZE]
         self.to_rev = self.message[self.REV_SIZE:2 * self.REV_SIZE]
         self.patch = self.message[2 * self.REV_SIZE:]
+
+    def _init_make(self):
+        self.target = self.message
 
     def is_ping(self):
         return self.msg_type == self.PING
@@ -141,6 +149,9 @@ class Message(object):
     def is_upgrade_patch(self):
         return self.msg_type == self.UPGRADE_PATCH
 
+    def is_make(self):
+        return self.msg_type == self.MAKE
+
     @property
     def type(self):
         if self.is_ping(): return 'PING'
@@ -156,6 +167,7 @@ class Message(object):
         if self.is_upgrade_flood(): return 'UPGRADE_FLOOD'
         if self.is_upgrade_req(): return 'UPGRADE_REQ'
         if self.is_upgrade_patch(): return 'UPGRADE_PATCH'
+        if self.is_make(): return 'MAKE'
 
     def __repr__(self):
         if self.is_pong(): return self._repr_pong()
@@ -165,6 +177,7 @@ class Message(object):
         if self.is_upgrade_flood(): return self._repr_upgrade_flood()
         if self.is_upgrade_req(): return self._repr_upgrade_req()
         if self.is_upgrade_patch(): return  self._repr_upgrade_patch()
+        if self.is_make(): return  self._repr_make()
         return "%6s" % self.type
 
     def _repr_upgrade_flood(self):
@@ -184,7 +197,11 @@ class Message(object):
         return "%6s, %s" % (self.type, self.neighbours)
 
     def _repr_pong(self):
-        return "%6s, %s, %s" % (self.type, self.time_tuple, self.current_rev)
+        return "%6s, %s, %s, %s" % \
+            (self.type, self.time_tuple, self.current_rev, self.addition_msg)
+
+    def _repr_make(self):
+        return "%6s, %s" % (self.type, self.message)
 
     def _repr_time_set(self):
         return "%6s, %s" % (self.type, self.time_tuple)
@@ -213,9 +230,9 @@ class Message(object):
         return cls(cls.PL_SET, message)
 
     @classmethod
-    def create_pong(cls, time_tuple, current_revision):
+    def create_pong(cls, time_tuple, current_revision, addition_msg=""):
         message = struct.pack(cls.TIME_FORMAT, *time_tuple)
-        return cls(cls.PONG, message + current_revision)
+        return cls(cls.PONG, message + current_revision + addition_msg)
 
     @classmethod
     def create_time_set(cls, time_tuple):
@@ -256,6 +273,10 @@ class Message(object):
     def create_upgrade_patch(cls, from_rev, to_rev, patch):
         return cls(cls.UPGRADE_PATCH, "".join([from_rev, to_rev, patch]))
 
+    @classmethod
+    def create_make(cls, target):
+        return cls(cls.MAKE, target)
+
 
 class Mode(object):
     # The normal mode that the nodes run in.
@@ -272,6 +293,7 @@ class Mode(object):
 
     # Upgrade mode: Request and send git patches to nodes.
     UPGRADE = 'upgrade'
+    MAKE = 'make'
 
 
 class Pong(net.layers.application.Application):
@@ -363,9 +385,9 @@ class Pong(net.layers.application.Application):
         if message.is_upgrade_patch() and self.mode == Mode.NORMAL:
             # Check if patch is applicable for this node.
             if message.from_rev == utils.git.get_current_revision():
-                self.log("Applying Patch:")
-                self.log(utils.git.apply_patch(message.patch))
-                self.send_pong(dest_addr=sender_addr)
+                output = utils.git.apply_patch(message.patch)
+                self.log("Applying Patch: %s" % output)
+                self.send_pong(addition_msg=output[:20], dest_addr=sender_addr)
                 self.restart_and_reload_processes()
 
         if message.is_upgrade_req() and self.mode == Mode.UPGRADE:
@@ -378,6 +400,10 @@ class Pong(net.layers.application.Application):
                 from_rev=message.rev, to_rev=self.rev, patch=patch)
             self._sent_upgrade_patches[(message.rev, self.rev)] = datetime.datetime.now()
             self._send_message(upgrade_patch, dest_addr=net.layers.base.FLOOD_ADDRESS)
+
+        if message.is_make() and self.mode != Mode.NORMAL:
+            output = utils.cli.call(["make", message.target])
+            self.send_pong(addition_msg=output[:20], dest_addr=sender_addr)
 
     def restart_and_reload_processes(self):
         # Restart manager and xbns.
@@ -460,14 +486,17 @@ class Pong(net.layers.application.Application):
         ping = Message.create_ping()
         self._send_message(ping)
 
-    def send_pong(self, dest_addr=None):
+    def send_pong(self, addition_msg="", dest_addr=None):
         time_tuple = TimeSpec.get_current_time()
         current_rev = utils.git.get_current_revision()
-        pong = Message.create_pong(time_tuple, current_rev)
+        pong = Message.create_pong(
+            time_tuple, current_rev, addition_msg=addition_msg)
         self._send_message(pong, dest_addr=dest_addr)
 
-    def send_pong_flood(self):
-        self.send_pong(dest_addr=net.layers.base.FLOOD_ADDRESS)
+    def send_pong_flood(self, addition_msg=""):
+        self.send_pong(
+            addition_msg=addition_msg,
+            dest_addr=net.layers.base.FLOOD_ADDRESS)
 
     def send_time_set(self):
         time_set = Message.create_time_set(TimeSpec.get_current_time())
@@ -477,6 +506,10 @@ class Pong(net.layers.application.Application):
         pl_set = Message.create_pl_set(value)
         self._handle_incoming_inner(pl_set)
         self._send_message(pl_set)
+
+    def send_make_flood(self, target):
+        make = Message.create_make(target)
+        self._send_message(make, dest_addr=net.layers.base.FLOOD_ADDRESS)
 
     def _send_message(self, message, dest_addr=None):
         self._send(message.to_string(), dest_addr=dest_addr)
@@ -523,6 +556,11 @@ def main(args):
             once = False
             app.send_upgrade_flood()
 
+        if once and args.mode == Mode.MAKE:
+            assert args.target
+            once = False
+            app.send_make_flood(args.target)
+
         time.sleep(1)
 
 
@@ -530,7 +568,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Pong Application')
     parser.add_argument('--mode', '-m', type=str, default=Mode.NORMAL,
                         choices=[Mode.NORMAL, Mode.PING, Mode.TIME, Mode.POWER,
-                            Mode.TOPO_REQ, Mode.TOPO_FLOOD, Mode.UPGRADE])
+                            Mode.TOPO_REQ, Mode.TOPO_FLOOD, Mode.UPGRADE, Mode.MAKE])
     # Power Level.
     parser.add_argument('--value', type=int, default=4, choices=[0,1,2,3,4])
     # XBee configuration
@@ -540,5 +578,8 @@ if __name__ == '__main__':
                         help='Baudrate')
     # Upgrade mode.
     parser.add_argument("--rev", type=str, help="Revision to upgrade to.")
+    # Make mode.
+    parser.add_argument("--target", type=str,
+                        help="Makefile target to remotely execute in network.")
     args = parser.parse_args()
     main(args)
