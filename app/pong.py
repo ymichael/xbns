@@ -388,13 +388,12 @@ class Pong(net.layers.application.Application):
                 output = utils.git.apply_patch(message.patch)
                 self.log("Applying Patch: %s" % output)
                 self.send_pong(addition_msg=output[:50], dest_addr=sender_addr)
-                self.restart_and_reload_processes()
 
         if message.is_upgrade_req() and self.mode == Mode.UPGRADE:
             # Check if we've sent the patch before
             # TODO: Check the time since sent, perhaps resend after x secs?
-            if (message.rev, self.rev) in self._sent_upgrade_patches:
-                return
+            # if (message.rev, self.rev) in self._sent_upgrade_patches:
+            #     return
             patch = utils.git.get_patch_for_revision(from_rev=message.rev, to_rev=self.rev)
             upgrade_patch = Message.create_upgrade_patch(
                 from_rev=message.rev, to_rev=self.rev, patch=patch)
@@ -404,11 +403,6 @@ class Pong(net.layers.application.Application):
         if message.is_make() and self.mode != Mode.MAKE:
             output = utils.cli.call(["make", message.target])
             self.send_pong(addition_msg=output[:50], dest_addr=sender_addr)
-
-    def restart_and_reload_processes(self):
-        # Restart manager and xbns.
-        utils.cli.call(["make", "restart"])
-        # TODO. reload pong app/modules loaded.
 
     def send_upgrade_req(self, dest_addr):
         current_rev = utils.git.get_current_revision()
