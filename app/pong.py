@@ -2,14 +2,17 @@ import argparse
 import ctypes
 import ctypes.util
 import datetime
-import git.git
 import net.layers.application
 import net.layers.base
 import net.layers.transport
+import net.radio.xbeeradio
+import serial
 import struct
 import subprocess
 import threading
 import time
+import utils.git
+import xbee
 
 
 class TimeSpec(ctypes.Structure):
@@ -314,7 +317,7 @@ class Pong(net.layers.application.Application):
     def __init__(self, addr):
         super(Pong, self).__init__(addr)
         self.mode = None
-        self.rev = git.git.get_current_revision()
+        self.rev = utils.git.get_current_revision()
         self.xbee = None
         self.topo_pongs = {}
 
@@ -386,16 +389,16 @@ class Pong(net.layers.application.Application):
 
         # UPGRADE related messages.
         if message.is_upgrade_flood() and self.mode != Mode.UPGRADE:
-            if git.git.has_revision(message.rev):
+            if utils.git.has_revision(message.rev):
                 self.send_pong(dest_addr=sender_addr)
             else:
                 self.send_upgrade_req(dest_addr=sender_addr)
 
         if message.is_upgrade_patch() and self.mode == Mode.NORMAL:
             # Check if patch is applicable for this node.
-            if message.from_rev == git.git.get_current_revision():
+            if message.from_rev == utils.git.get_current_revision():
                 self.log("Applying Patch:")
-                self.log(git.git.apply_patch(message.patch))
+                self.log(utils.git.apply_patch(message.patch))
                 self.send_pong(dest_addr=sender_addr)
                 self.restart_and_reload_processes()
 
@@ -404,7 +407,7 @@ class Pong(net.layers.application.Application):
             # TODO: Check the time since sent, perhaps resend after x secs?
             if (message.rev, self.rev) in self._sent_upgrade_patches:
                 return
-            patch = git.git.get_patch_for_revision(from_rev=message.rev, to_rev=self.rev)
+            patch = utils.git.get_patch_for_revision(from_rev=message.rev, to_rev=self.rev)
             upgrade_patch = Message.create_upgrade_patch(
                 from_rev=message.rev, to_rev=self.rev, patch=patch)
             self._sent_upgrade_patches[(message.rev, self.rev)] = datetime.datetime.now()
@@ -416,7 +419,7 @@ class Pong(net.layers.application.Application):
         # TODO. reload pong app/modules loaded.
 
     def send_upgrade_req(self, dest_addr):
-        current_rev = git.git.get_current_revision()
+        current_rev = utils.git.get_current_revision()
         upgrade_req = Message.create_upgrade_req(current_rev)
         self._send_message(upgrade_req, dest_addr=dest_addr)
 
@@ -493,7 +496,7 @@ class Pong(net.layers.application.Application):
 
     def send_pong(self, dest_addr=None):
         time_tuple = TimeSpec.get_current_time()
-        current_rev = git.git.get_current_revision()
+        current_rev = utils.git.get_current_revision()
         pong = Message.create_pong(time_tuple, current_rev)
         self._send_message(pong, dest_addr=dest_addr)
 
@@ -515,16 +518,13 @@ class Pong(net.layers.application.Application):
 
 
 def main(args):
-    app = Pong.create_and_run_application()
-    app.set_mode(args.mode)
-    app.set_rev(args.rev or git.git.get_current_revision())
-
-    import serial
-    import xbee
-    import net.radio.xbeeradio
     serial_object = serial.Serial(args.port, args.baudrate)
     xbee_module = xbee.XBee(serial_object, escaped=True)
     xbee_radio = net.radio.xbeeradio.XBeeRadio(xbee_module)
+
+    app = Pong.create_and_run_application()
+    app.set_mode(args.mode)
+    app.set_rev(args.rev or utils.git.get_current_revision())
     app.set_xbee(xbee_radio)
 
     once = True
