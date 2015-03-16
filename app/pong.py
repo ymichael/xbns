@@ -1,6 +1,4 @@
 import argparse
-import ctypes
-import ctypes.util
 import datetime
 import net.layers.application
 import net.layers.base
@@ -8,45 +6,13 @@ import net.layers.transport
 import net.radio.xbeeradio
 import serial
 import struct
-import subprocess
 import threading
 import time
+import utils.cli
 import utils.git
 import xbee
 
-
-class TimeSpec(ctypes.Structure):
-    # Source: http://stackoverflow.com/a/12292874/1070617
-    _fields_ = [("tv_sec", ctypes.c_long), ("tv_nsec", ctypes.c_long)]
-
-    @staticmethod
-    def set_time_zone():
-        try:
-            subprocess.check_output(
-                ["unlink", "/etc/localtime"])
-            subprocess.check_output(
-                ["ln", "-s", "/usr/share/zoneinfo/Singapore", "/etc/localtime"])
-        except subprocess.CalledProcessError, e:
-            print e.output
-
-    @staticmethod
-    def get_current_time():
-        current_time = datetime.datetime.now()
-        current_milliseconds = current_time.microsecond / 1000
-        time_tuple = current_time.timetuple()[:6] + (current_milliseconds,)
-        return time_tuple
-
-    @staticmethod
-    def set_time(time_tuple):
-        TimeSpec.set_time_zone()
-        try:
-            librt = ctypes.CDLL(ctypes.util.find_library("rt"))
-            ts = TimeSpec()
-            ts.tv_sec = int(time.mktime(datetime.datetime(*time_tuple[:6]).timetuple()))
-            ts.tv_nsec = time_tuple[6] * 1000000
-            librt.clock_settime(0, ctypes.byref(ts))
-        except Exception, e:
-            print str(e)
+from utils.timespec import TimeSpec
 
 
 class Message(object):
@@ -415,7 +381,7 @@ class Pong(net.layers.application.Application):
 
     def restart_and_reload_processes(self):
         # Restart manager and xbns.
-        subprocess.call(["make", "restart"])
+        utils.cli.call(["make", "restart"])
         # TODO. reload pong app/modules loaded.
 
     def send_upgrade_req(self, dest_addr):

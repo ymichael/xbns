@@ -23,10 +23,9 @@ An implmentation of a networking stack for use with XBees radios.
   (that make use of the `net` stack)
 - TODO
 
-## `git`
-- Contains functions to interface with `git` for UPGRADE mode in the Pong
-  application.
-- test
+## `utils`
+- Contains functions to interface with the cli to help manage nodes.
+- Eg. git, time setting etc.
 
 ## Installing dependencies
 ```sh
