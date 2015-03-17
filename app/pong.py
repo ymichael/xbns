@@ -130,6 +130,8 @@ class Message(utils.pdu.PDU):
     @classmethod
     def create_pong(cls, time_tuple, current_revision, addition_msg=""):
         message = struct.pack(cls.TIME_FORMAT, *time_tuple)
+        # Strip newlines from addition_msg
+        addition_msg = addition_msg.replace("\n", ", ")
         return cls(cls.PONG, message + current_revision + addition_msg)
 
     @classmethod
