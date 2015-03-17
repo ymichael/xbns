@@ -238,19 +238,20 @@ class Manager(net.layers.application.Application):
         self.rateless.protocol.PDU_CLS.DATA_FORMAT = "II" + ("B" * self.R_PACKETS_PER_PAGE) + \
             ("B" * self.R_PACKET_SIZE)
 
-    def start_normal(self, data):
-        active = self.apps[self.PROTOCOL]
-        self.delay_start_active(self.DELAY)
+    def start_normal(self, data, version):
+        self.delay_start_active(self.DELAY, data, version)
 
-    def delay_start_active(self, delay):
+    def delay_start_active(self, delay, data, version=None):
         if self._start_timer is not None:
             self._start_timer.cancel()
-        self._start_timer = threading.Timer(delay, self._start_active)
+        self._start_timer = threading.Timer(
+            delay, self._start_active, args=(data, version))
         self._start_timer.start()
 
-    def _start_active(self):
+    def _start_active(self, data, version):
+        active = self.apps[self.PROTOCOL]
         active.start_protocol()
-        active.disseminate(data)
+        active.disseminate(data, version)
 
     def _send_ctrl(self):
         ctrl = ManagerPDU.create_ctrl(
@@ -317,7 +318,7 @@ def main(args):
     seed_data = args.file.read()
     args.file.close()
     if manager.mode == Mode.NORMAL_MODE:
-        manager.start_normal(seed_data)
+        manager.start_normal(seed_data, args.version)
     if manager.mode == Mode.LISTEN_MODE:
         manager._send_ping()
     while True:
@@ -335,6 +336,7 @@ if __name__ == '__main__':
     seed = parser.add_argument_group('Protocol Seed Data')
     seed.add_argument('--file', '-f', type=argparse.FileType(), required=True,
                       help='File to seed as the initial version of the data.')
+    seed.add_argument('--version', '-v', type=int, default=1)
 
     config = parser.add_argument_group('Protocol Configuration')
     config.add_argument('--protocol', '-p', choices=Protocol.NAMES,

@@ -74,9 +74,9 @@ class DataDissemination(net.layers.application.Application):
         dd_pdu = self.PDU_CLS.create_for_app(data)
         self._send(dd_pdu.to_string())
 
-    def disseminate(self, data):
+    def disseminate(self, data, version=None):
         self.log("DISSEMINATING DATA (%s)" % len(data))
-        self.protocol.disseminate(data)
+        self.protocol.disseminate(data, version)
 
     def _handle_incoming_dissemination(self, data):
         raise NotImplementedError

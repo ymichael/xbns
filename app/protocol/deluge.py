@@ -110,7 +110,9 @@ class Deluge(app.protocol.base.Base):
     STATE_CLS = DelugeState
 
     def process_outgoing(self, data):
-        self.new_version(self.version + 1, data)
+        data, version = data
+        version = version or (self.version + 1)
+        self.new_version(version, data)
 
     def new_version(self, version, data, force=False, start=True):
         # Only update if the version is later than the current version.

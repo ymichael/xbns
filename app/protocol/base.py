@@ -50,8 +50,8 @@ class Base(object):
         raise NotImplementedError(
             "This should be overriden by subclasses.")
 
-    def disseminate(self, data):
-        self._outgoing.put(data)
+    def disseminate(self, data, version=None):
+        self._outgoing.put((data, version))
 
     def received(self, data):
         self._incoming.put(data)
