@@ -20,8 +20,7 @@ ROWS_REQUIRED = PAGE_SIZE / PACKET_SIZE
 class RatelessDelugePDU(deluge.DelugePDU):
     # I: unsigned int
     # version, page_number, coeffs, data
-    DATA_FORMAT = "II" + ("B" * ROWS_REQUIRED) + \
-        ("B" * PACKET_SIZE)
+    DATA_FORMAT = "II" + ("B" * ROWS_REQUIRED) + ("B" * PACKET_SIZE)
 
     # request_from, version, page, num_packets
     REQ_HEADER = "HIII"
