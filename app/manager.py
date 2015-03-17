@@ -241,7 +241,7 @@ class Manager(net.layers.application.Application):
     def start_normal(self, data, version):
         self.delay_start_active(self.DELAY, data, version)
 
-    def delay_start_active(self, delay, data, version=None):
+    def delay_start_active(self, delay, data=None, version=None):
         if self._start_timer is not None:
             self._start_timer.cancel()
         self._start_timer = threading.Timer(
@@ -251,7 +251,8 @@ class Manager(net.layers.application.Application):
     def _start_active(self, data, version):
         active = self.apps[self.PROTOCOL]
         active.start_protocol()
-        active.disseminate(data, version)
+        if data or version:
+            active.disseminate(data, version)
 
     def _send_ctrl(self):
         ctrl = ManagerPDU.create_ctrl(
