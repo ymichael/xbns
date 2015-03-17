@@ -83,7 +83,7 @@ rsync:
 	rsync -avz \
 		--include=*.py \
 		--exclude=addr.txt \
-		--exclude=*.txt \
+		--exclude=log/*.txt \
 		--exclude=.venv \
 		--exclude=*.pyc \
 		--exclude=*.DS_Store \
