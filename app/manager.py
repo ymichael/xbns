@@ -1,9 +1,10 @@
+import app.deluge
+import app.rateless_deluge
+import app.protocol.rateless_deluge
 import argparse
-import deluge
 import net.layers.application
 import net.layers.base
 import pickle
-import rateless_deluge
 import struct
 import time
 import utils.pdu
@@ -102,13 +103,13 @@ class Manager(net.layers.application.Application):
         super(Manager, self).__init__(addr)
         self.apps = {}
         self._create_protocol_applications()
-        self.deluge.stop()
-        self.rateless.stop()
+        self.deluge.stop_protocol()
+        self.rateless.stop_protocol()
 
     def _create_protocol_applications(self):
-        self.apps[Protocol.DELUGE] = deluge.Deluge.create_and_run_application()
+        self.apps[Protocol.DELUGE] = app.deluge.Deluge.create_and_run_application()
         self.apps[Protocol.RATELESS] = \
-            rateless_deluge.RatelessDeluge.create_and_run_application()
+            app.rateless_deluge.RatelessDeluge.create_and_run_application()
 
     def set_mode(self, mode):
         self.mode = mode
@@ -141,8 +142,9 @@ class Manager(net.layers.application.Application):
         self._send_ack()
         self._update_ctrl_parameters(data_unit)
         if self.mode == Mode.NORMAL_MODE:
+            time.sleep(self.DELAY)
             active = self.apps[self.PROTOCOL]
-            active._start_next_round(self.DELAY)
+            active.start_protocol()
 
     def _update_ctrl_parameters(self, data_unit):
         self.PROTOCOL = data_unit.protocol
@@ -166,39 +168,40 @@ class Manager(net.layers.application.Application):
         self._update_rateless()
 
     def _update_deluge(self):
-        self.deluge.stop()
-        data = self.deluge.get_data()
-        self.deluge.PAGE_SIZE = self.D_PAGE_SIZE
-        self.deluge.PACKET_SIZE = self.D_PACKET_SIZE
-        self.deluge.PACKETS_PER_PAGE = self.D_PACKETS_PER_PAGE
-        self.deluge.new_version(1, data, force=True, start=False)
-        self.deluge.T_MIN = self.T_MIN
-        self.deluge.T_MAX = self.T_MAX
-        self.deluge.K = self.K
-        self.deluge.FRAME_DELAY = self.FRAME_DELAY
-        self.deluge._reset_round_state()
+        self.deluge.stop_protocol()
+        data = self.deluge.protocol.get_data()
+        self.deluge.protocol.PAGE_SIZE = self.D_PAGE_SIZE
+        self.deluge.protocol.PACKET_SIZE = self.D_PACKET_SIZE
+        self.deluge.protocol.PACKETS_PER_PAGE = self.D_PACKETS_PER_PAGE
+        self.deluge.protocol.new_version(1, data, force=True, start=False)
+        self.deluge.protocol.T_MIN = self.T_MIN
+        self.deluge.protocol.T_MAX = self.T_MAX
+        self.deluge.protocol.K = self.K
+        self.deluge.protocol.FRAME_DELAY = self.FRAME_DELAY
+        self.deluge.protocol._reset_round_state()
 
     def _update_rateless(self):
-        self.rateless.stop()
-        data = self.rateless.get_data()
-        self.rateless.PAGE_SIZE = self.R_PAGE_SIZE
-        self.rateless.PACKET_SIZE = self.R_PACKET_SIZE
-        self.rateless.PACKETS_PER_PAGE = self.R_PACKETS_PER_PAGE
-        self.rateless.new_version(1, data, force=True, start=False)
-        self.rateless.T_MIN = self.T_MIN
-        self.rateless.T_MAX = self.T_MAX
-        self.rateless.K = self.K
-        self.rateless.FRAME_DELAY = self.FRAME_DELAY
-        self.rateless._reset_round_state()
+        self.rateless.stop_protocol()
+        data = self.rateless.protocol.get_data()
+        self.rateless.protocol.PAGE_SIZE = self.R_PAGE_SIZE
+        self.rateless.protocol.PACKET_SIZE = self.R_PACKET_SIZE
+        self.rateless.protocol.PACKETS_PER_PAGE = self.R_PACKETS_PER_PAGE
+        self.rateless.protocol.new_version(1, data, force=True, start=False)
+        self.rateless.protocol.T_MIN = self.T_MIN
+        self.rateless.protocol.T_MAX = self.T_MAX
+        self.rateless.protocol.K = self.K
+        self.rateless.protocol.FRAME_DELAY = self.FRAME_DELAY
+        self.rateless.protocol._reset_round_state()
 
-        rateless_deluge.ROWS_REQUIRED = self.R_PACKETS_PER_PAGE
-        self.rateless.PDU_CLS.DATA_FORMAT = "II" + ("B" * self.R_PACKETS_PER_PAGE) + \
+        app.protocol.rateless_deluge.ROWS_REQUIRED = self.R_PACKETS_PER_PAGE
+        self.rateless.protocol.PDU_CLS.DATA_FORMAT = "II" + ("B" * self.R_PACKETS_PER_PAGE) + \
             ("B" * self.R_PACKET_SIZE)
 
     def start_normal(self, version, data):
         active = self.apps[self.PROTOCOL]
-        active.new_version(version, data, force=True, start=False)
-        active._start_next_round(self.DELAY)
+        time.sleep(self.DELAY)
+        active.start_protocol()
+        active.disseminate(data)
 
     def _send_ctrl(self):
         ctrl = ManagerPDU.create_ctrl(
@@ -226,6 +229,7 @@ class Manager(net.layers.application.Application):
         self._send(data_unit.to_string(), dest_addr=dest_addr)
 
     def log(self, message):
+        # TODO: Fix this.
         prefix = "(%2s, %s, D=%s/%s, R=%s/%s, k = %s, t_min = %s, t_max = %s, delay = %s)" % \
             (self.addr, Protocol.get_name(self.PROTOCOL),
                 self.D_PAGE_SIZE, self.D_PACKET_SIZE,

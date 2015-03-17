@@ -12,15 +12,3 @@ class Deluge(app.data_dissemination.DataDissemination):
 
     def _handle_incoming_dissemination(self, data):
         pass
-
-    # TODO.
-    # Delegate the following attributes.
-    DELEGATE_TO_PROTOCOL = [
-        'stop',
-        'get_data',
-        'new_version',
-    ]
-    def __getattr__(self, name):
-        if hasattr(self.protocol, name) and name in self.DELEGATE_TO_PROTOCOL:
-            return getattr(self.protocol, name)
-        raise AttributeError("%r object has no attribute %r" % (self.__class__, name))

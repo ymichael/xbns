@@ -246,6 +246,10 @@ class Deluge(app.protocol.base.Base):
         # [time, data_pdu, sender] of the last data packet received.
         self._last_data_packet_received = (None, None, None)
 
+    def start(self):
+        if self._stopped:
+            self._start_next_round()
+
     def stop(self):
         self._stopped = True
         self._cancel_all_timers()

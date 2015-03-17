@@ -55,6 +55,12 @@ class DataDissemination(net.layers.application.Application):
         t.setDaemon(True)
         t.start()
 
+    def start_protocol(self):
+        self.protocol.start()
+
+    def stop_protocol(self):
+        self.protocol.stop()
+
     def _check_protocol_received(self):
         while True:
             data = self.protocol.get_received_blocking()
@@ -69,6 +75,7 @@ class DataDissemination(net.layers.application.Application):
         self._send(dd_pdu.to_string())
 
     def disseminate(self, data):
+        self.log("DISSEMINATING DATA (%s)" % len(data))
         self.protocol.disseminate(data)
 
     def _handle_incoming_dissemination(self, data):

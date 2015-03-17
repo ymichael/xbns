@@ -2,6 +2,7 @@ import config
 import logging
 import logging.handlers
 import Queue as queue
+import sys
 import threading
 
 
@@ -11,6 +12,11 @@ class Base(object):
         self._incoming = queue.Queue()
         self._outgoing = queue.Queue()
         self._init_logger()
+
+        # Check for outgoing data from apps.
+        t = threading.Thread(target=self._check_outgoing)
+        t.setDaemon(True)
+        t.start()
 
     def _init_logger(self):
         # Each layer has a logger that logs to the console.
@@ -30,9 +36,10 @@ class Base(object):
         self.logger.info("Starting up.")
 
     def start(self):
-        t = threading.Thread(target=self._check_outgoing)
-        t.setDaemon(True)
-        t.start()
+        raise NotImplementedError
+
+    def stop(self):
+        raise NotImplementedError
 
     def _check_outgoing(self):
         while True:

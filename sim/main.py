@@ -4,6 +4,7 @@ from pprint import pprint
 
 import app.deluge
 import app.pong
+import app.protocol.rateless_deluge
 import app.rateless_deluge
 import argparse
 import config
@@ -55,24 +56,6 @@ def main(args):
 
     # Run protocol.
     APP_CLS = PROTOCOLS[args.protocol]
-    if args.protocol == 'deluge' or args.protocol == 'rateless':
-        APP_CLS.K = args.k
-        APP_CLS.T_MIN = args.tmin
-        APP_CLS.T_MAX = args.tmax
-        if args.protocol == 'deluge':
-            assert args.dpagesize % args.dpacketsize == 0
-            APP_CLS.PAGE_SIZE = args.dpagesize
-            APP_CLS.PACKET_SIZE = args.dpacketsize
-            APP_CLS.PACKETS_PER_PAGE = args.dpagesize / args.dpacketsize
-        elif args.protocol == 'rateless':
-            assert args.rpagesize % args.rpacketsize == 0
-            APP_CLS.PAGE_SIZE = args.rpagesize
-            APP_CLS.PACKET_SIZE = args.rpacketsize
-            APP_CLS.PACKETS_PER_PAGE = args.rpagesize / args.rpacketsize
-            app.rateless_deluge.ROWS_REQUIRED = args.rpagesize / args.rpacketsize
-            APP_CLS.PDU_CLS.DATA_FORMAT = "II" + ("B" * APP_CLS.PACKETS_PER_PAGE) + \
-                ("B" * APP_CLS.PACKET_SIZE)
-
     for addr, node in nodes.iteritems():
         node.start_application(APP_CLS(addr))
 
@@ -101,11 +84,33 @@ def main(args):
             nodes[addr].get_application(APP_CLS.ADDRESS).send_topo_flood()
 
     if args.protocol == 'deluge' or args.protocol == 'rateless':
+        for addr, node in nodes.iteritems():
+            application = node.get_application(APP_CLS.ADDRESS)
+            application.stop_protocol()
+            application.protocol.K = args.k
+            application.protocol.T_MIN = args.tmin
+            application.protocol.T_MAX = args.tmax
+            if args.protocol == 'deluge':
+                assert args.dpagesize % args.dpacketsize == 0
+                application.protocol.PAGE_SIZE = args.dpagesize
+                application.protocol.PACKET_SIZE = args.dpacketsize
+                application.protocol.PACKETS_PER_PAGE = args.dpagesize / args.dpacketsize
+            elif args.protocol == 'rateless':
+                assert args.rpagesize % args.rpacketsize == 0
+                application.protocol.PAGE_SIZE = args.rpagesize
+                application.protocol.PACKET_SIZE = args.rpacketsize
+                application.protocol.PACKETS_PER_PAGE = args.rpagesize / args.rpacketsize
+                application.protocol.PDU_CLS.DATA_FORMAT = "II" + ("B" * application.protocol.PACKETS_PER_PAGE) + \
+                    ("B" * application.protocol.PACKET_SIZE)
+                # TODO
+                app.protocol.rateless_deluge.ROWS_REQUIRED = args.rpagesize / args.rpacketsize
+            application.start_protocol()
+
         # Read file and seed in the network.
         data = args.file.read()
         args.file.close()
         for addr in args.seed:
-            nodes[addr].get_application(APP_CLS.ADDRESS).new_version(2, data)
+            nodes[addr].get_application(APP_CLS.ADDRESS).disseminate(data)
 
     # Don't terminate.
     while True:
