@@ -7,6 +7,7 @@ import pickle
 import rateless_deluge
 import struct
 import time
+import utils.pdu
 
 
 class Protocol(object):
@@ -36,22 +37,10 @@ class Mode(object):
     LISTEN_MODE = "LISTEN"
 
 
-class ManagerPDU(object):
-    ACK = 0
-    CTRL = 1
-    PING = 2
+class ManagerPDU(utils.pdu.PDU):
+    TYPES = ["ACK", "CTRL", "PING"]
 
-    HEADER_PREFIX = "B"
-    HEADER_PREFIX_SIZE = struct.calcsize(HEADER_PREFIX)
-
-    def __init__(self, msg_type, message):
-        self.msg_type = msg_type
-        self.message = message
-
-        if self.is_ctrl():
-            self.__init_ctrl()
-
-    def __init_ctrl(self):
+    def _init_ctrl(self):
         x = pickle.loads(self.message)
         self.protocol = x[0]
         self.d_page_size = x[1]
@@ -64,38 +53,6 @@ class ManagerPDU(object):
         self.delay = x[8]
         self.frame_delay = x[9]
 
-    def is_ctrl(self):
-        return self.msg_type == self.CTRL
-
-    def is_ping(self):
-        return self.msg_type == self.PING
-
-    def is_ack(self):
-        return self.msg_type == self.ACK
-
-    @property
-    def type(self):
-        if self.is_ctrl():
-            return 'CTRL'
-        elif self.is_ack():
-            return 'ACK'
-        elif self.is_ping():
-            return 'PING'
-
-    def to_string(self):
-        header = struct.pack(self.HEADER_PREFIX, self.msg_type)
-        return header + self.message
-
-    @classmethod
-    def from_string(cls, data):
-        x = struct.unpack(cls.HEADER_PREFIX, data[:cls.HEADER_PREFIX_SIZE])
-        return cls(x[0], data[cls.HEADER_PREFIX_SIZE:])
-
-    def __repr__(self):
-        if self.is_ctrl():
-            return self._repr_ctrl()
-        return self.type
-
     def _repr_ctrl(self):
         return "%4s, %s, d = %s/%s, r = %s/%s k = %s, t_min = %s, t_max = %s, delay = %s, frame_delay = %s" % \
             (self.type, Protocol.get_name(self.protocol),
@@ -104,7 +61,7 @@ class ManagerPDU(object):
                 self.k, self.t_min, self.t_max, self.delay, self.frame_delay)
 
     @classmethod
-    def create_ctrl_packet(cls,
+    def create_ctrl(cls,
             protocol=Protocol.DELUGE,
             d_page_size=1020, d_packet_size=60,
             r_page_size=900, r_packet_size=45,
@@ -120,14 +77,6 @@ class ManagerPDU(object):
                 r_page_size, r_packet_size,
                 k, t_min, t_max, delay, frame_delay])
         return cls(cls.CTRL, message)
-
-    @classmethod
-    def create_ack_packet(cls):
-        return cls(cls.ACK, message="")
-
-    @classmethod
-    def create_ping_packet(cls):
-        return cls(cls.PING, message="")
 
 
 class Manager(net.layers.application.Application):
@@ -254,7 +203,7 @@ class Manager(net.layers.application.Application):
         active._start_next_round(self.DELAY)
 
     def _send_ctrl(self):
-        ctrl = ManagerPDU.create_ctrl_packet(
+        ctrl = ManagerPDU.create_ctrl(
             protocol=self.PROTOCOL,
             d_page_size=self.D_PAGE_SIZE,
             d_packet_size=self.D_PACKET_SIZE,
@@ -267,11 +216,11 @@ class Manager(net.layers.application.Application):
         self._send_pdu(ctrl, dest_addr=net.layers.base.FLOOD_ADDRESS)
 
     def _send_ack(self):
-        ack = ManagerPDU.create_ack_packet()
+        ack = ManagerPDU.create_ack()
         self._send_pdu(ack, dest_addr=net.layers.base.FLOOD_ADDRESS)
 
     def _send_ping(self):
-        ping = ManagerPDU.create_ping_packet()
+        ping = ManagerPDU.create_ping()
         self._send_pdu(ping, dest_addr=net.layers.base.FLOOD_ADDRESS)
 
     def _send_pdu(self, data_unit, dest_addr=None):
@@ -296,7 +245,7 @@ class Manager(net.layers.application.Application):
 def main(args):
     manager = Manager.create_and_run_application()
     manager.set_mode(args.mode)
-    control_pdu = ManagerPDU.create_ctrl_packet(
+    control_pdu = ManagerPDU.create_ctrl(
         protocol=Protocol.get_protocol(args.protocol),
         d_page_size=args.dpagesize,
         d_packet_size=args.dpacketsize,

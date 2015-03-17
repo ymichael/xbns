@@ -10,68 +10,55 @@ import threading
 import time
 import utils.cli
 import utils.git
+import utils.pdu
 import utils.timespec
 import xbee
 
 
-class Message(object):
-    HEADER_PREFIX = "B"
-    HEADER_PREFIX_SIZE = struct.calcsize(HEADER_PREFIX)
+class Message(utils.pdu.PDU):
+    TYPES = [
+        "PING",         # Simple message to check liveness.
+        "PONG",         # Response for liveness check.
+        "TIME_REQ",     # Request time from neighbours.
+        "TIME_SET",     # Sends current time to neighbours.
+        "PL_SET",       # Set power level
 
-    PING =       0  # Simple message to check liveness.
-    PONG =       1  # Response for liveness check.
-    TIME_REQ =   2  # Request time from neighbours.
-    TIME_SET =   3  # Sends current time to neighbours.
-    PL_SET =     4  # Set power level
+        # Topology related messages.
+        # 1. To get neighbours, node sends a TOPO_PING and keep tracks of the number
+        #    of TOPO_PONG(s) received from various nodes.
+        # 2. To get network topology, initiate a TOPO_FLOOD, which causes each node to
+        #    perform a TOPO_PING, receive local information about neighbours then
+        #    flood the network with this information.
+        # 3. To get a particular node's topology information, send a TOPO_REQ.
+        "TOPO_REQ",     # Requests for topology information.
+        "TOPO_RES",     # Response for topology information.
+        "TOPO_FLOOD",   # Flood network with messages about local topology.
+        "TOPO_PING",    # Broadcasts a ping to get neighbour information.
+        "TOPO_PONG",    # Responds to neighbours TOPO_PING
 
-    # Topology related messages.
-    # 1. To get neighbours, node sends a TOPO_PING and keep tracks of the number
-    #    of TOPO_PONG(s) received from various nodes.
-    # 2. To get network topology, initiate a TOPO_FLOOD, which causes each node to
-    #    perform a TOPO_PING, receive local information about neighbours then
-    #    flood the network with this information.
-    # 3. To get a particular node's topology information, send a TOPO_REQ.
-    TOPO_REQ =   6  # Requests for topology information.
-    TOPO_RES =   7  # Response for topology information.
-    TOPO_FLOOD = 8  # Flood network with messages about local topology.
-    TOPO_PING =  9  # Broadcasts a ping to get neighbour information.
-    TOPO_PONG =  10  # Responds to neighbours TOPO_PING
+        # Upgrade related messages.
+        # - To initiate upgrade, start Pong app in Mode.UPGRADE mode.
+        # 1. This sends out a UPGRADE_FLOOD message with the current revision.
+        # 2. Upon receiving this UPGRADE_FLOOD message, nodes check if they are
+        #    behind or ahead of this advertised revision.
+        # 3. If a node is ahead, ignore message and respond with a PING.
+        # 4. If the node is behind, send an UPGRADE_REQ message with its current revision.
+        # 5. Only the node with in UPGRADE mode will respond to UPGRADE_REQs with UPGRADE_PATCH
+        #    which contain the git patches to upgrade.
+        # 6. Once a node is up-to-date, it responds with a PING
+        "UPGRADE_FLOOD",
+        "UPGRADE_REQ",
+        "UPGRADE_PATCH",
 
-    # Upgrade related messages.
-    # - To initiate upgrade, start Pong app in Mode.UPGRADE mode.
-    # 1. This sends out a UPGRADE_FLOOD message with the current revision.
-    # 2. Upon receiving this UPGRADE_FLOOD message, nodes check if they are
-    #    behind or ahead of this advertised revision.
-    # 3. If a node is ahead, ignore message and respond with a PING.
-    # 4. If the node is behind, send an UPGRADE_REQ message with its current revision.
-    # 5. Only the node with in UPGRADE mode will respond to UPGRADE_REQs with UPGRADE_PATCH
-    #    which contain the git patches to upgrade.
-    # 6. Once a node is up-to-date, it responds with a PING
-    UPGRADE_FLOOD = 11
-    UPGRADE_REQ = 12
-    UPGRADE_PATCH = 13
-
-    # Make command. Runs a makefile target remotely.
-    MAKE = 14
+        # Make command. Runs a makefile target remotely.
+        "MAKE",
+    ]
 
     TIME_FORMAT = "HBBBBBH"
     TIME_FORMAT_SIZE = struct.calcsize(TIME_FORMAT)
     REV_SIZE = 7 # `git rev-parse --short HEAD`
     PL_FORMAT = "H"
     TOPO_PONG_FORMAT = "H"
-
-    def __init__(self, msg_type, message):
-        self.msg_type = msg_type
-        self.message = message
-        if self.is_pong(): self._init_pong()
-        if self.is_time_set(): self._init_time_set()
-        if self.is_pl_set(): self._init_pl_set()
-        if self.is_topo_pong(): self._init_topo_pong()
-        if self.is_topo_res(): self._init_topo_res()
-        if self.is_upgrade_flood(): self._init_upgrade_flood()
-        if self.is_upgrade_req(): self._init_upgrade_req()
-        if self.is_upgrade_patch(): self._init_upgrade_patch()
-        if self.is_make(): self._init_make()
 
     def _init_pong(self):
         tfs = self.TIME_FORMAT_SIZE
@@ -109,76 +96,6 @@ class Message(object):
     def _init_make(self):
         self.target = self.message
 
-    def is_ping(self):
-        return self.msg_type == self.PING
-
-    def is_pong(self):
-        return self.msg_type == self.PONG
-
-    def is_time_req(self):
-        return self.msg_type == self.TIME_REQ
-
-    def is_time_set(self):
-        return self.msg_type == self.TIME_SET
-
-    def is_pl_set(self):
-        return self.msg_type == self.PL_SET
-
-    def is_topo_req(self):
-        return self.msg_type == self.TOPO_REQ
-
-    def is_topo_res(self):
-        return self.msg_type == self.TOPO_RES
-
-    def is_topo_flood(self):
-        return self.msg_type == self.TOPO_FLOOD
-
-    def is_topo_ping(self):
-        return self.msg_type == self.TOPO_PING
-
-    def is_topo_pong(self):
-        return self.msg_type == self.TOPO_PONG
-
-    def is_upgrade_flood(self):
-        return self.msg_type == self.UPGRADE_FLOOD
-
-    def is_upgrade_req(self):
-        return self.msg_type == self.UPGRADE_REQ
-
-    def is_upgrade_patch(self):
-        return self.msg_type == self.UPGRADE_PATCH
-
-    def is_make(self):
-        return self.msg_type == self.MAKE
-
-    @property
-    def type(self):
-        if self.is_ping(): return 'PING'
-        if self.is_pong(): return 'PONG'
-        if self.is_time_req(): return 'TIME_REQ'
-        if self.is_time_set(): return 'TIME_SET'
-        if self.is_pl_set(): return 'PL_SET'
-        if self.is_topo_req(): return 'TOPO_REQ'
-        if self.is_topo_res(): return 'TOPO_RES'
-        if self.is_topo_flood(): return 'TOPO_FLOOD'
-        if self.is_topo_ping(): return 'TOPO_PING'
-        if self.is_topo_pong(): return 'TOPO_PONG'
-        if self.is_upgrade_flood(): return 'UPGRADE_FLOOD'
-        if self.is_upgrade_req(): return 'UPGRADE_REQ'
-        if self.is_upgrade_patch(): return 'UPGRADE_PATCH'
-        if self.is_make(): return 'MAKE'
-
-    def __repr__(self):
-        if self.is_pong(): return self._repr_pong()
-        if self.is_time_set(): return self._repr_time_set()
-        if self.is_topo_pong(): return self._repr_topo_pong()
-        if self.is_topo_res(): return self._repr_topo_res()
-        if self.is_upgrade_flood(): return self._repr_upgrade_flood()
-        if self.is_upgrade_req(): return self._repr_upgrade_req()
-        if self.is_upgrade_patch(): return  self._repr_upgrade_patch()
-        if self.is_make(): return  self._repr_make()
-        return "%6s" % self.type
-
     def _repr_upgrade_flood(self):
         return "%s, current_rev = %s" % (self.type, self.rev)
 
@@ -205,23 +122,6 @@ class Message(object):
     def _repr_time_set(self):
         return "%6s, %s" % (self.type, self.time_tuple)
 
-    def to_string(self):
-        header = struct.pack(self.HEADER_PREFIX, self.msg_type)
-        return header + self.message
-
-    @classmethod
-    def from_string(cls, data):
-        x = struct.unpack(cls.HEADER_PREFIX, data[:cls.HEADER_PREFIX_SIZE])
-        return cls(x[0], data[cls.HEADER_PREFIX_SIZE:])
-
-    @classmethod
-    def create_ping(cls):
-        return cls(cls.PING, "")
-
-    @classmethod
-    def create_time_req(cls):
-        return cls(cls.TIME_REQ, "")
-
     @classmethod
     def create_pl_set(cls, pl):
         assert 0 <= pl <= 4
@@ -239,21 +139,9 @@ class Message(object):
         return cls(cls.TIME_SET, message)
 
     @classmethod
-    def create_topo_req(cls):
-        return cls(cls.TOPO_REQ, "")
-
-    @classmethod
     def create_topo_res(cls, neighbours):
         message = struct.pack("B" * len(neighbours), *neighbours)
         return cls(cls.TOPO_RES, message)
-
-    @classmethod
-    def create_topo_flood(cls):
-        return cls(cls.TOPO_FLOOD, "")
-
-    @classmethod
-    def create_topo_ping(cls):
-        return cls(cls.TOPO_PING, "")
 
     @classmethod
     def create_topo_pong(cls, recipient_addr):

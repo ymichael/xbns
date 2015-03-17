@@ -9,15 +9,11 @@ import random
 import struct
 import threading
 import time
+import utils.pdu
 
 
-class DelugePDU(object):
-    # B: unsigned char
-    # 1 - ADV
-    # 2 - REQ
-    # 3 - DATA
-    HEADER_PREFIX = "B"
-    HEADER_PREFIX_SIZE = struct.calcsize(HEADER_PREFIX) # 1 byte
+class DelugePDU(utils.pdu.PDU):
+    TYPES = ["ADV", "REQ", "DATA"]
 
     # I: unsigned int
     # version, page_number, packet_number
@@ -27,21 +23,6 @@ class DelugePDU(object):
     # version, page_number
     REQ_HEADER = "HII"
     REQ_HEADER_SIZE = struct.calcsize(REQ_HEADER)
-
-    ADV = 0
-    REQ = 1
-    DATA = 2
-
-    def __init__(self, msg_type, message):
-        self.msg_type = msg_type
-        self.message = message
-
-        if self.is_adv():
-            self._init_adv()
-        elif self.is_req():
-            self._init_req()
-        elif self.is_data():
-            self._init_data()
 
     def _init_adv(self):
         self.version, self.largest_completed_page, self.total_pages, self.data_hash = \
@@ -58,36 +39,6 @@ class DelugePDU(object):
             struct.unpack(self.DATA_HEADER, self.message[:self.DATA_HEADER_SIZE])
         self.data = self.message[self.DATA_HEADER_SIZE:]
 
-    @property
-    def type(self):
-        if self.is_adv():
-            return 'ADV'
-        elif self.is_req():
-            return 'REQ'
-        elif self.is_data():
-            return 'DATA'
-
-    def is_adv(self):
-        return self.msg_type == self.ADV
-
-    def is_req(self):
-        return self.msg_type == self.REQ
-
-    def is_data(self):
-        return self.msg_type == self.DATA
-
-    def to_string(self):
-        header = struct.pack(self.HEADER_PREFIX, self.msg_type)
-        return header + self.message
-
-    def __repr__(self):
-        if self.is_adv():
-            return self._repr_adv()
-        elif self.is_req():
-            return self._repr_req()
-        elif self.is_data():
-            return self._repr_data()
-
     def _repr_adv(self):
         return "%4s, %2s, %2s, %3s, %s" % \
             (self.type, self.version, self.largest_completed_page,
@@ -101,24 +52,19 @@ class DelugePDU(object):
         return "%4s, %2s, %2s" % (self.type, self.page_number, self.packet_number)
 
     @classmethod
-    def from_string(cls, data):
-        x = struct.unpack(cls.HEADER_PREFIX, data[:cls.HEADER_PREFIX_SIZE])
-        return cls(x[0], data[cls.HEADER_PREFIX_SIZE:])
-
-    @classmethod
-    def create_adv_packet(cls, version, largest_completed_page, total_pages,
+    def create_adv(cls, version, largest_completed_page, total_pages,
             data_hash):
         message = pickle.dumps(
             [version, largest_completed_page, total_pages, data_hash])
         return cls(cls.ADV, message)
 
     @classmethod
-    def create_data_packet(cls, version, page_number, packet_number, data):
+    def create_data(cls, version, page_number, packet_number, data):
         header = struct.pack(cls.DATA_HEADER, version, page_number, packet_number)
         return cls(cls.DATA, header + data)
 
     @classmethod
-    def create_req_packet(cls, request_from, version, page_number, packets):
+    def create_req(cls, request_from, version, page_number, packets):
         header = struct.pack(cls.REQ_HEADER, request_from, version, page_number)
         message = struct.pack('B' * len(packets), *packets)
         return cls(cls.REQ, header + message)
@@ -367,7 +313,7 @@ class Deluge(net.layers.application.Application):
         if self.adv_overheard >= self.K and not force:
             self.log("Suppressed ADV")
             return
-        adv = self.PDU_CLS.create_adv_packet(self.version,
+        adv = self.PDU_CLS.create_adv(self.version,
             len(self.complete_pages), self.total_pages, self.data_hash)
         self._send_pdu(adv)
 
@@ -392,7 +338,7 @@ class Deluge(net.layers.application.Application):
         else:
             current_packets = set(self.buffering_pages[self._page_to_req].keys())
         missing_packets = set(xrange(self.PACKETS_PER_PAGE)) - current_packets
-        return self.PDU_CLS.create_req_packet(
+        return self.PDU_CLS.create_req(
             self._rx_source, self.version, self._page_to_req, missing_packets)
 
     def _maybe_exit_rx(self):
@@ -411,7 +357,7 @@ class Deluge(net.layers.application.Application):
     def _send_data(self):
         while len(self._pending_datas):
             page, packet = self._pending_datas.pop()
-            data = self.PDU_CLS.create_data_packet(
+            data = self.PDU_CLS.create_data(
                 self.version, page, packet,
                 self.complete_pages[page][packet])
             sent_data = self._send_pdu(data)

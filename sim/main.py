@@ -153,7 +153,7 @@ if __name__ == '__main__':
                         help='Rateless: The number of bytes in each packet.')
 
     # Make
-    parser.add_argument('--target', type=str, help='Makefile target.')
+    parser.add_argument('--target', type=str, default="yo", help='Makefile target.')
 
     args = parser.parse_args()
     main(args)
