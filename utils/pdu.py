@@ -12,10 +12,13 @@ class PDUType(type):
             assert 'INDEX_TO_TYPE' not in attrs
             attrs['INDEX_TO_TYPE'] = [t.lower() for t in types]
             # Create respective `classmethods` to create each message type.
-            def generic_create(t): return lambda cls: cls(attrs[t.upper()])
+            def generic_create_for_t(t):
+                def generic_create(cls, message=""):
+                    return cls(attrs[t.upper()], message)
+                return generic_create
             for t in attrs['INDEX_TO_TYPE']:
                 if "create_" + t not in attrs:
-                    attrs["create_" + t] = classmethod(generic_create(t))
+                    attrs["create_" + t] = classmethod(generic_create_for_t(t))
         # Create `from_string` classmethod.
         def from_string(cls, data):
             x = struct.unpack(cls.HEADER_PREFIX, data[:cls.HEADER_PREFIX_SIZE])
