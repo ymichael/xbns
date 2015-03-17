@@ -5,7 +5,7 @@ Description=Apps
 ExecStart=/home/michael/xbns/bin/apps
 KillMode=mixed
 Type=idle
-Restart=no
+Restart=always
 
 [Install]
 WantedBy=multi-user.target

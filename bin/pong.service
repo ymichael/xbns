@@ -5,7 +5,7 @@ Description=Pong
 ExecStart=/home/michael/xbns/bin/pong
 KillMode=mixed
 Type=idle
-Restart=no
+Restart=always
 
 [Install]
 WantedBy=multi-user.target
