@@ -70,9 +70,9 @@ class DataDissemination(net.layers.application.Application):
         dd_pdu = self.PDU_CLS.create_for_protocol(data)
         self._send(dd_pdu.to_string())
 
-    def _send_to_app(self, data):
+    def _send_to_app(self, data, dest_addr=None):
         dd_pdu = self.PDU_CLS.create_for_app(data)
-        self._send(dd_pdu.to_string())
+        self._send(dd_pdu.to_string(), dest_addr=dest_addr)
 
     def disseminate(self, data, version=None):
         self.log("DISSEMINATING DATA (%s)" % len(data))

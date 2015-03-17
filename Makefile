@@ -47,6 +47,9 @@ setpower:
 manager:
 	PYTHONPATH=. python app/manager.py -f data/20KB.in $(ARGS)
 
+ota:
+	PYTHONPATH=. python app/ota.py $(ARGS)
+
 sim:
 	PYTHONPATH=. python sim/main.py $(ARGS)
 
@@ -67,7 +70,10 @@ installxbns:
 installapps:
 	./bin/install.sh apps.service
 
-setup: installxbns installpong installapps
+installota:
+	./bin/install.sh ota.service
+
+setup: installxbns installpong installapps installota
 	ps aux | grep python
 
 rmpyc:

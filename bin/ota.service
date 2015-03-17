@@ -1,0 +1,11 @@
+[Unit]
+Description=Ota
+
+[Service]
+ExecStart=/home/michael/xbns/bin/ota
+KillMode=mixed
+Type=idle
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
