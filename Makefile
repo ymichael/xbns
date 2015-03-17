@@ -57,8 +57,18 @@ test:
 yo:
 	echo YO
 
-setup:
-	./bin/setup.sh
+# SETUP TARGETS.
+installpong:
+	./bin/install.sh pong.service
+
+installxbns:
+	./bin/install.sh xbns.service
+
+installapps:
+	./bin/install.sh apps.service
+
+setup: installxbns installpong installapps
+	ps aux | grep python
 
 rmpyc:
 	find . | grep -v .venv | grep .pyc | xargs -r rm

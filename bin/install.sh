@@ -1,11 +1,5 @@
 #!/usr/bin/env bash
 
-# Make sure only root can run our script
-if [ "$(id -u)" != "0" ]; then
-   echo "This script must be run as root" 1>&2
-   exit 1
-fi
-
 install () {
     # Remove and uninstall the service (if exists).
     systemctl stop $1
@@ -21,8 +15,16 @@ install () {
     systemctl status $1
 }
 
-install xbns.service
-install pong.service
-install apps.service
 
-ps aux | grep python
+# Make sure only root can run our script
+if [ "$(id -u)" != "0" ]; then
+   echo "This script must be run as root" 1>&2
+   exit 1
+fi
+
+if [ -z ${1+x} ]; then
+    echo "Expect a service name (eg. xbns.service) as the first cli argument.";
+    exit 1
+else
+    install $1
+fi
