@@ -3,9 +3,6 @@
 setaddr:
 	ssh michael@bone "echo $(ADDR) > ~/xbns/addr.txt"
 
-rmpyc:
-	find . | grep -v .venv | grep .pyc | xargs rm
-
 # Find out which serial port to use
 # Matches /dev/tty.usbserial && /dev/ttyUSB0
 SERIALPORT = $(shell find /dev | egrep -i "ttyUSB|tty.*usbserial")
@@ -62,8 +59,11 @@ yo:
 setup:
 	./bin/setup.sh
 
+rmpyc:
+	find . | grep -v .venv | grep .pyc | xargs -r rm
+
 clearlogs:
-	find log/ -type f | grep -v py | xargs rm
+	find log/ -type f | grep -v py | xargs -r rm
 
 reset: rmpyc clearlogs setup
 
