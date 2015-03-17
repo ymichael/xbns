@@ -529,7 +529,7 @@ class Deluge(net.layers.application.Application):
     def _send_pdu(self, data_unit):
         self._log_send_pdu(data_unit)
         string = data_unit.to_string()
-        self.send(string)
+        self._send(string)
         # Return the string being sent.
         return string
 

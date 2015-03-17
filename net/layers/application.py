@@ -15,9 +15,6 @@ class Application(base.BaseLayer):
 
         self._outgoing_queue = None
 
-    def send(self, data):
-        self._send(data)
-
     def set_outgoing_queue(self, queue):
         self._outgoing_queue = queue
 
