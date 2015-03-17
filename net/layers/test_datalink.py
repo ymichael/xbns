@@ -88,7 +88,7 @@ class TestDataLink(object):
 
     def test_should_forward(self):
         data_unit = datalink.DataLinkPDU(
-            self.addr, self.addr + 1,
+            self.addr + 1, self.addr + 2,
             self.message_id, 1, len(self.short_data), 1, self.short_data)
         args = (data_unit.to_string(), self.addr + 1)
         self.data_link_layer._handle_incoming(args)
@@ -105,7 +105,7 @@ class TestDataLink(object):
 
     def test_should_not_forward_if_seen(self):
         data_unit = datalink.DataLinkPDU(
-            self.addr, self.addr + 1,
+            self.addr + 1, self.addr + 2,
             self.message_id, 1, len(self.short_data), 1, self.short_data)
         args = (data_unit.to_string(), self.addr + 1)
         self.data_link_layer._handle_incoming(args)
