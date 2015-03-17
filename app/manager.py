@@ -1,11 +1,12 @@
 import app.deluge
-import app.rateless_deluge
 import app.protocol.rateless_deluge
+import app.rateless_deluge
 import argparse
 import net.layers.application
 import net.layers.base
 import pickle
 import struct
+import threading
 import time
 import utils.pdu
 
@@ -105,6 +106,7 @@ class Manager(net.layers.application.Application):
         self._create_protocol_applications()
         self.deluge.stop_protocol()
         self.rateless.stop_protocol()
+        self._start_timer = None
 
     def _create_protocol_applications(self):
         self.apps[Protocol.DELUGE] = app.deluge.Deluge.create_and_run_application()
@@ -127,7 +129,6 @@ class Manager(net.layers.application.Application):
         self._log_receive_pdu(data_unit, sender_addr)
         if data_unit.is_ctrl():
             self._process_ctrl(data_unit)
-
         if data_unit.is_ping():
             self._process_ping()
 
@@ -136,27 +137,28 @@ class Manager(net.layers.application.Application):
         # Get active protocol to send ADV is in normal mode.
         if self.mode == Mode.NORMAL_MODE:
             active = self.apps[self.PROTOCOL]
-            active._send_adv(force=True)
+            active.protocol._send_adv(force=True)
 
     def _process_ctrl(self, data_unit):
         self._send_ack()
         self._update_ctrl_parameters(data_unit)
         if self.mode == Mode.NORMAL_MODE:
-            time.sleep(self.DELAY)
-            active = self.apps[self.PROTOCOL]
-            active.start_protocol()
+            self.delay_start_active(self.DELAY)
 
     def _update_ctrl_parameters(self, data_unit):
         self.PROTOCOL = data_unit.protocol
 
+        # Deluge
         self.D_PAGE_SIZE = data_unit.d_page_size
         self.D_PACKET_SIZE = data_unit.d_packet_size
         self.D_PACKETS_PER_PAGE = self.D_PAGE_SIZE / self.D_PACKET_SIZE
 
+        # Rateless
         self.R_PAGE_SIZE = data_unit.r_page_size
         self.R_PACKET_SIZE = data_unit.r_packet_size
         self.R_PACKETS_PER_PAGE = self.R_PAGE_SIZE / self.R_PACKET_SIZE
 
+        # Common configuration
         self.K = data_unit.k
         self.T_MIN = data_unit.t_min
         self.T_MAX = data_unit.t_max
@@ -199,7 +201,15 @@ class Manager(net.layers.application.Application):
 
     def start_normal(self, version, data):
         active = self.apps[self.PROTOCOL]
-        time.sleep(self.DELAY)
+        self.delay_start_active(self.DELAY)
+
+    def delay_start_active(self, delay):
+        if self._start_timer is not None:
+            self._start_timer.cancel()
+        self._start_timer = threading.Timer(delay, self._start_active)
+        self._start_timer.start()
+
+    def _start_active(self):
         active.start_protocol()
         active.disseminate(data)
 
