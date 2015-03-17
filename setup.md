@@ -50,21 +50,10 @@ ssh michael@bone "echo 5 > ~/xbns/addr.txt"
 
 6. add services (`make setup`)
 ```
-# ssh-ed into device.
-# Copy file
-sudo cp ~/xbns/bin/xbns.service /lib/systemd/system/
-
-# Enable service
-sudo systemctl enable xbns.service
-
-# Start service
-sudo systemctl start xbns.service
-
-# See status (optional)
-sudo systemctl status xbns.service
+make setup
 ```
 
-- Add xbns.service, pong.service, apps.service.
+- Add xbns.service, pong.service, apps.service, ota.service
 - NOTE: xbns.service requires the xbee to be plugged in when it is run.
 - use `ps aux | grep python` to check after starting all the services.
 
