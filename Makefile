@@ -53,6 +53,7 @@ sim:
 test:
 	PYTHONPATH=. nosetests
 
+# Used to test pong app. remote make target execution.
 yo:
 	echo YO
 
