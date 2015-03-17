@@ -3,7 +3,6 @@ import datetime
 import hashlib
 import math
 import net.layers.application
-import net.layers.transport
 import pickle
 import random
 import struct
@@ -367,13 +366,9 @@ class Deluge(net.layers.application.Application):
             time.sleep(math.ceil(len(sent_data) / 76.0) * self.FRAME_DELAY)
         self._change_state(self.STATE_CLS.MAINTAIN)
 
-    def _handle_incoming(self, data):
-        transport_pdu = net.layers.transport.TransportPDU.from_string(data)
-        data_unit = self.PDU_CLS.from_string(transport_pdu.message)
-        self._log_receive_pdu(data_unit, transport_pdu.source_addr)
-        self._handle_incoming_inner(data_unit, transport_pdu.source_addr)
-
-    def _handle_incoming_inner(self, data_unit, sender_addr):
+    def _handle_incoming_message(self, message, sender_addr):
+        data_unit = self.PDU_CLS.from_string(message)
+        self._log_receive_pdu(data_unit, sender_addr)
         if self._stopped:
             return
 

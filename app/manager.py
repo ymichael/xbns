@@ -2,7 +2,6 @@ import argparse
 import deluge
 import net.layers.application
 import net.layers.base
-import net.layers.transport
 import pickle
 import rateless_deluge
 import struct
@@ -122,10 +121,9 @@ class Manager(net.layers.application.Application):
     def rateless(self):
         return self.apps.get(Protocol.RATELESS)
 
-    def _handle_incoming(self, data):
-        transport_pdu = net.layers.transport.TransportPDU.from_string(data)
-        data_unit = ManagerPDU.from_string(transport_pdu.message)
-        self._log_receive_pdu(data_unit, transport_pdu.source_addr)
+    def _handle_incoming_message(self, message, sender_addr):
+        data_unit = ManagerPDU.from_string(message)
+        self._log_receive_pdu(data_unit, sender_addr)
         if data_unit.is_ctrl():
             self._process_ctrl(data_unit)
 

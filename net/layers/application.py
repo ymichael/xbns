@@ -48,10 +48,10 @@ class Application(base.BaseLayer):
 
     def _handle_incoming(self, data):
         transport_pdu = transport.TransportPDU.from_string(data)
-        self._handle_incoming_message(transport_pdu.message)
+        self._handle_incoming_message(transport_pdu.message, transport_pdu.source_addr)
 
-    def _handle_incoming_message(self, message):
-        self.log(message)
+    def _handle_incoming_message(self, message, sender_addr):
+        self.log("Received %s from %s" % (message, sender_addr))
 
     def log(self, message):
         prefix = "(%s)" % self.addr

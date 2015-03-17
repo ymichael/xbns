@@ -2,7 +2,6 @@ import argparse
 import datetime
 import net.layers.application
 import net.layers.base
-import net.layers.transport
 import net.radio.xbeeradio
 import serial
 import struct
@@ -223,13 +222,10 @@ class Pong(net.layers.application.Application):
         time.sleep(10)
         self.send_time_req_delayed()
 
-    def _handle_incoming(self, data):
-        pdu = net.layers.transport.TransportPDU.from_string(data)
-        message = Message.from_string(pdu.message)
-        self.log("Received message from %3s: %s" % (pdu.source_addr, repr(message)))
-        self._handle_incoming_inner(message, pdu.source_addr)
+    def _handle_incoming_message(self, message, sender_addr):
+        message = Message.from_string(message)
+        self.log("Received message from %s: %s" % (sender_addr, repr(message)))
 
-    def _handle_incoming_inner(self, message, sender_addr):
         # TOPO related messages.
         if message.is_topo_req():
             self.send_topo_res_delayed()
