@@ -16,12 +16,6 @@ port:
 start:
 	PYTHONPATH=. python net/main.py --port=$(SERIALPORT)
 
-receive:
-	PYTHONPATH=. python test/receive.py --port=$(SERIALPORT)
-
-sender:
-	PYTHONPATH=. python test/sender.py --port=$(SERIALPORT)
-
 app:
 	PYTHONPATH=. python net/layers/application.py
 
@@ -68,13 +62,10 @@ yo:
 setup:
 	./bin/setup.sh
 
-restart:
-	./bin/restart.sh
-
 clearlogs:
 	find log/ -type f | grep -v py | xargs rm
 
-reset: setup rmpyc clearlogs
+reset: rmpyc clearlogs setup
 
 # rsync repository with beaglebone (w/o makefile)
 rsync:
