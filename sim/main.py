@@ -90,6 +90,11 @@ def main(args):
             application.protocol.K = args.k
             application.protocol.T_MIN = args.tmin
             application.protocol.T_MAX = args.tmax
+            application.protocol.FRAME_DELAY = args.framedelay
+            application.protocol.T_R = args.t_r
+            application.protocol.T_TX = args.t_tx
+            application.protocol.W = args.w
+            application.protocol.RX_MAX = args.rx_max
             if args.protocol == 'deluge':
                 assert args.dpagesize % args.dpacketsize == 0
                 application.protocol.PAGE_SIZE = args.dpagesize
@@ -102,7 +107,7 @@ def main(args):
                 application.protocol.PACKETS_PER_PAGE = args.rpagesize / args.rpacketsize
                 application.protocol.PDU_CLS.DATA_FORMAT = "II" + ("B" * application.protocol.PACKETS_PER_PAGE) + \
                     ("B" * application.protocol.PACKET_SIZE)
-                # TODO
+                # TODO: Cleaner way to do this.
                 app.protocol.rateless_deluge.ROWS_REQUIRED = args.rpagesize / args.rpacketsize
             application.start_protocol()
 
@@ -123,39 +128,50 @@ if __name__ == '__main__':
     parser.add_argument('--protocol', '-p', default='deluge',
                         choices=PROTOCOLS.keys(),
                         help='Protocol to run in simulation.')
-    # TODO: A easy way to specify topology.
-    parser.add_argument('--topo', '-t', default='l[2, 1]-c[3, 10]-l[2, 20]',
-                        help=topology.TOPOLOGY_HELP)
-    parser.add_argument('--seed', '-s', nargs='*', type=int, default=[1],
-                        help='Node IDs to seed the file initially, defaults to 1')
-    parser.add_argument('--loss', '-l', default=0, type=float,
-                        help='The packet loss rate, defaults to 0.')
-    parser.add_argument('--delay', '-d', default=0, type=float,
-                        help='The propogation delay in the shared medium, defaults to 0.')
-    parser.add_argument('--file', '-f', type=argparse.FileType(),
-                        default='./data/20KB.in',
-                        help='File to propagate through the network')
     parser.add_argument('--log', type=bool, default=False,
                         help='Whether to write to log file.')
 
-    parser.add_argument('-k', type=int, default=1,
+    # TODO: A easy way to specify topology.
+    network = parser.add_argument_group('Network Configuration')
+    network.add_argument('--topo', '-t', default='l[2, 1]-c[3, 10]-l[2, 20]',
+                         help=topology.TOPOLOGY_HELP)
+    network.add_argument('--seed', '-s', nargs='*', type=int, default=[1],
+                         help='Node IDs to seed the file initially, defaults to 1')
+    network.add_argument('--loss', '-l', default=0, type=float,
+                         help='The packet loss rate, defaults to 0.')
+    network.add_argument('--delay', '-d', default=0, type=float,
+                         help='The propogation delay in the shared medium, defaults to 0.')
+
+    common = parser.add_argument_group('Deluge/Rateless Common Configuration')
+    common.add_argument('--file', '-f', type=argparse.FileType(),
+                        default='./data/20KB.in',
+                        help='File to propagate through the network')
+    common.add_argument('-k', type=int, default=1,
                         help='Number of overheard messages to trigger message suppression.')
-    parser.add_argument('--tmin', type=float, default=1,
+    common.add_argument('--tmin', type=float, default=1,
                         help='The lower bound for the round window length, in seconds.')
-    parser.add_argument('--tmax', type=float, default=60 * 10,
+    common.add_argument('--tmax', type=float, default=60 * 10,
                         help='The upper bound for the round window length, in seconds.')
+    common.add_argument('--framedelay', type=float, default=.02,
+                        help='The time taken for a frame to leave the xbee after it is sent.')
+    common.add_argument('--t_r', type=float, default=.5)
+    common.add_argument('--t_tx', type=float, default=.2)
+    common.add_argument('--w', type=int, default=10)
+    common.add_argument('--rx_max', type=int, default=2)
 
     # Deluge page/packet size
-    parser.add_argument('--dpagesize', type=int, default=1020,
+    deluge = parser.add_argument_group('Deluge Specific Configuration')
+    deluge.add_argument('--dpagesize', type=int, default=1020,
                         help='Deluge: The number of bytes in each page.')
-    parser.add_argument('--dpacketsize', type=int, default=60,
+    deluge.add_argument('--dpacketsize', type=int, default=60,
                         help='Deluge: The number of bytes in each packet.')
 
     # Rateless page/packet size
-    parser.add_argument('--rpagesize', type=int, default=900,
-                        help='Rateless: The number of bytes in each page.')
-    parser.add_argument('--rpacketsize', type=int, default=45,
-                        help='Rateless: The number of bytes in each packet.')
+    rateless = parser.add_argument_group('Rateless Specific Configuration')
+    rateless.add_argument('--rpagesize', type=int, default=900,
+                          help='Rateless: The number of bytes in each page.')
+    rateless.add_argument('--rpacketsize', type=int, default=45,
+                          help='Rateless: The number of bytes in each packet.')
 
     # Make
     parser.add_argument('--target', type=str, default="yo", help='Makefile target.')
