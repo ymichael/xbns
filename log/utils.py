@@ -334,6 +334,9 @@ def get_log_lines(files):
             return False
         if logline.protocol == "Manager" and "CTRL" not in logline.original:
             return False
+        # TODO: Investigate bug 16 mar where version goes crazy.
+        if logline.version and logline.version > 100:
+            return False
         if logline.timestamp.year != 2015:
             return False
         return True
