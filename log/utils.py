@@ -114,6 +114,11 @@ def get_version(lines):
             v_to_lines[l.version] += 1
     return max(v_to_lines.keys(), key=lambda v: v_to_lines[v])
 
+def get_total_pages(lines, version=None):
+    version = version or get_version(lines)
+    return max(l.total_pages for l in lines if l.version == version)
+
+
 
 def get_stats(lines):
     # Nodes involved and version upgraded to.
@@ -132,7 +137,7 @@ def get_stats(lines):
                 break
 
     # Breakdown of completion times for each node
-    total_pages = next(l.total_pages for l in lines if l.version == version)
+    total_pages = get_total_pages(lines, version)
     completion_times = dict((n, dict()) for n in nodes)
     for page in xrange(total_pages + 1):
         for node in nodes:
