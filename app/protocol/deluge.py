@@ -11,8 +11,15 @@ import time
 import utils.pdu
 
 
+DATA_HASH_SIZE = 7
+
+
 class DelugePDU(utils.pdu.PDU):
     TYPES = ["ADV", "REQ", "DATA"]
+
+    # version, largest_completed_page, total_pages
+    ADV_HEADER = "III"
+    ADV_HEADER_SIZE = struct.calcsize(ADV_HEADER) # 12 bytes
 
     # I: unsigned int
     # version, page_number, packet_number
@@ -24,8 +31,14 @@ class DelugePDU(utils.pdu.PDU):
     REQ_HEADER_SIZE = struct.calcsize(REQ_HEADER)
 
     def _init_adv(self):
-        self.version, self.largest_completed_page, self.total_pages, self.data_hash = \
-            pickle.loads(self.message)
+        self.version, self.largest_completed_page, self.total_pages = \
+            struct.unpack(self.ADV_HEADER, self.message[:self.ADV_HEADER_SIZE])
+        self.data_hash = self.message[self.ADV_HEADER_SIZE:self.ADV_HEADER_SIZE + DATA_HASH_SIZE]
+        known_completed = self.message[self.ADV_HEADER_SIZE + DATA_HASH_SIZE:]
+        if known_completed == "":
+            self.known_completed = []
+        else:
+            self.known_completed = struct.unpack('B' * len(known_completed), known_completed)
 
     def _init_req(self):
         self.request_from, self.version, self.page_number = \
@@ -39,9 +52,9 @@ class DelugePDU(utils.pdu.PDU):
         self.data = self.message[self.DATA_HEADER_SIZE:]
 
     def _repr_adv(self):
-        return "%4s, %2s, %2s, %3s, %s" % \
+        return "%4s, %2s, %2s, %3s, %s, %s" % \
             (self.type, self.version, self.largest_completed_page,
-                    self.total_pages, self.data_hash)
+                    self.total_pages, self.data_hash, self.known_completed)
 
     def _repr_req(self):
         return "%4s, request_from: %s, %2s %s" % \
@@ -51,11 +64,16 @@ class DelugePDU(utils.pdu.PDU):
         return "%4s, %2s, %2s" % (self.type, self.page_number, self.packet_number)
 
     @classmethod
-    def create_adv(cls, version, largest_completed_page, total_pages,
-            data_hash):
-        message = pickle.dumps(
-            [version, largest_completed_page, total_pages, data_hash])
-        return cls(cls.ADV, message)
+    def create_adv(cls, version, largest_completed_page, total_pages, data_hash,
+            known_completed=None):
+        header = struct.pack(cls.ADV_HEADER, version, largest_completed_page, total_pages)
+        data_hash = data_hash[:DATA_HASH_SIZE] if data_hash is not None else ("_" * DATA_HASH_SIZE)
+        # Piggyback known completed neighbours in ADV.
+        if known_completed is not None:
+            known_completed = struct.pack('B' * len(known_completed), *known_completed)
+        else:
+            known_completed = ""
+        return cls(cls.ADV, header + data_hash + known_completed)
 
     @classmethod
     def create_data(cls, version, page_number, packet_number, data):
@@ -199,6 +217,7 @@ class Deluge(app.protocol.base.Base):
         self._next_round_timer = None
 
         self._stopped = False
+        self._known_completed = set()
 
         self._reset_round_state()
 
@@ -322,7 +341,8 @@ class Deluge(app.protocol.base.Base):
             self._log("Suppressed ADV")
             return
         adv = self.PDU_CLS.create_adv(self.version,
-            len(self.complete_pages), self.total_pages, self.data_hash)
+            len(self.complete_pages), self.total_pages,
+            self.data_hash, self._known_completed)
         self._send_pdu(adv)
 
     def _send_req_delayed(self):
@@ -389,7 +409,8 @@ class Deluge(app.protocol.base.Base):
             self.version = data_unit.version
             self.buffering_pages = {}
             self.complete_pages = []
-            self.total_pages = None
+            self.total_pages = 0
+            self._known_completed = set()
 
         # Record state regarding overheard REQ and DATA packets
         if data_unit.is_req() or data_unit.is_data():
@@ -428,9 +449,14 @@ class Deluge(app.protocol.base.Base):
             return
 
         if data_unit.version == self.version and \
-                data_unit.total_pages is not None:
+                data_unit.total_pages != 0:
             # Update total_pages.
             self.total_pages = data_unit.total_pages
+
+            # Update known completed info.
+            for n in data_unit.known_completed:
+                self._known_completed.add(n)
+            self._known_completed.add(sender_addr)
 
         # Check if network is consistent.
         if data_unit.version == self.version and \
