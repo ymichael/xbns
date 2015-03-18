@@ -264,7 +264,12 @@ class Manager(net.layers.application.Application):
             k=self.K,
             t_min=self.T_MIN,
             t_max=self.T_MAX,
-            delay=self.DELAY)
+            delay=self.DELAY,
+            frame_delay=self.FRAME_DELAY,
+            t_r=self.T_R,
+            t_tx=self.T_TX,
+            w=self.W,
+            rx_max=self.RX_MAX)
         self._send_pdu(ctrl, dest_addr=net.layers.base.FLOOD_ADDRESS)
 
     def _send_ack(self):
