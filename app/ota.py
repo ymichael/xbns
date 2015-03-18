@@ -40,6 +40,7 @@ class OTAPDU(utils.pdu.PDU):
 class Mode(object):
     NORMAL = "normal"
     UPGRADE = "upgrade"
+    PUSH = "push"
     STOP = "stop"
 
 
@@ -118,6 +119,9 @@ class OTA(app.data_dissemination.DataDissemination):
             self.log("Earliest revision is up-to-date. No patch required.")
             return
         from_rev = self.earliest_revision
+        self._send_patch_inner(version, from_rev, to_rev)
+
+    def _send_patch_inner(self, version, from_rev, to_rev):
         patch = utils.git.get_patch_for_revision(from_rev, to_rev)
         ota_pdu = OTAPDU.create_patch(from_rev, to_rev, patch)
         self.log("Disseminating patch... %s, %s" % (from_rev, to_rev))
@@ -151,6 +155,11 @@ def main(args):
         ota._send_flood()
         time.sleep(5)
         ota._send_patch(args.version)
+    elif args.mode == Mode.PUSH:
+        assert args.version
+        assert args.from_rev
+        assert args.to_rev
+        ota._send_patch_inner(args.version, args.from_rev, args.to_rev)
     elif args.mode == Mode.STOP:
         ota._send_stop()
 
@@ -161,7 +170,9 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Manager Application')
     parser.add_argument('--mode', '-m', type=str, default=Mode.NORMAL,
-                        choices=[Mode.NORMAL, Mode.UPGRADE, Mode.STOP])
+                        choices=[Mode.NORMAL, Mode.UPGRADE, Mode.STOP, Mode.PUSH])
     parser.add_argument('--version', '-v', type=int, default=2)
+    parser.add_argument('--from_rev', type=str)
+    parser.add_argument('--to_rev', type=str)
     args = parser.parse_args()
     main(args)
