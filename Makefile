@@ -82,7 +82,7 @@ rmpyc:
 clearlogs:
 	find log/ -type f | grep -v py | xargs -r rm
 
-reset: rmpyc clearlogs setup
+reset: clearlogs setup
 
 # rsync repository with beaglebone (w/o makefile)
 rsync:

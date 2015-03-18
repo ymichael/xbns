@@ -4,7 +4,6 @@ install () {
     # Remove and uninstall the service (if exists).
     systemctl stop $1
     systemctl disable $1
-    rm /lib/systemd/system/$1
 
     # Install the service.
     cp /home/michael/xbns/bin/$1 /lib/systemd/system/

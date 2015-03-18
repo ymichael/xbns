@@ -4,7 +4,7 @@ Description=Apps
 [Service]
 ExecStart=/home/michael/xbns/bin/apps
 KillMode=mixed
-Type=idle
+Type=simple
 Restart=always
 
 [Install]

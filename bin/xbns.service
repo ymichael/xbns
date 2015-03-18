@@ -4,7 +4,7 @@ Description=XBNS
 [Service]
 ExecStart=/home/michael/xbns/bin/xbns
 KillMode=mixed
-Type=idle
+Type=simple
 Restart=always
 
 [Install]
