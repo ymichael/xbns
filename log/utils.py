@@ -108,7 +108,11 @@ def get_nodes(lines):
 
 
 def get_version(lines):
-    return max(line.version for line in lines if line.version)
+    v_to_lines = collections.defaultdict(int)
+    for l in lines:
+        if l.version:
+            v_to_lines[l.version] += 1
+    return max(v_to_lines.keys(), key=lambda v: v_to_lines[v])
 
 
 def get_stats(lines):
