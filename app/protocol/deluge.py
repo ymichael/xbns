@@ -11,8 +11,15 @@ import time
 import utils.pdu
 
 
+DATA_HASH_SIZE = 7
+
+
 class DelugePDU(utils.pdu.PDU):
     TYPES = ["ADV", "REQ", "DATA"]
+
+    # version, largest_completed_page, total_pages
+    ADV_HEADER = "III"
+    ADV_HEADER_SIZE = struct.calcsize(ADV_HEADER) # 12 bytes
 
     # I: unsigned int
     # version, page_number, packet_number
@@ -24,8 +31,9 @@ class DelugePDU(utils.pdu.PDU):
     REQ_HEADER_SIZE = struct.calcsize(REQ_HEADER)
 
     def _init_adv(self):
-        self.version, self.largest_completed_page, self.total_pages, self.data_hash = \
-            pickle.loads(self.message)
+        self.version, self.largest_completed_page, self.total_pages = \
+            struct.unpack(self.ADV_HEADER, self.message[:self.ADV_HEADER_SIZE])
+        self.data_hash = self.message[self.ADV_HEADER_SIZE:self.ADV_HEADER_SIZE + DATA_HASH_SIZE]
 
     def _init_req(self):
         self.request_from, self.version, self.page_number = \
@@ -51,11 +59,10 @@ class DelugePDU(utils.pdu.PDU):
         return "%4s, %2s, %2s" % (self.type, self.page_number, self.packet_number)
 
     @classmethod
-    def create_adv(cls, version, largest_completed_page, total_pages,
-            data_hash):
-        message = pickle.dumps(
-            [version, largest_completed_page, total_pages, data_hash])
-        return cls(cls.ADV, message)
+    def create_adv(cls, version, largest_completed_page, total_pages, data_hash):
+        header = struct.pack(cls.ADV_HEADER, version, largest_completed_page, total_pages)
+        data_hash = data_hash[:DATA_HASH_SIZE]
+        return cls(cls.ADV, header + data_hash)
 
     @classmethod
     def create_data(cls, version, page_number, packet_number, data):
@@ -389,7 +396,7 @@ class Deluge(app.protocol.base.Base):
             self.version = data_unit.version
             self.buffering_pages = {}
             self.complete_pages = []
-            self.total_pages = None
+            self.total_pages = 0
 
         # Record state regarding overheard REQ and DATA packets
         if data_unit.is_req() or data_unit.is_data():
@@ -428,7 +435,7 @@ class Deluge(app.protocol.base.Base):
             return
 
         if data_unit.version == self.version and \
-                data_unit.total_pages is not None:
+                data_unit.total_pages != 0:
             # Update total_pages.
             self.total_pages = data_unit.total_pages
 
