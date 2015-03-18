@@ -456,7 +456,8 @@ class Deluge(app.protocol.base.Base):
             # Update known completed info.
             for n in data_unit.known_completed:
                 self._known_completed.add(n)
-            self._known_completed.add(sender_addr)
+            if data_unit.largest_completed_page == data_unit.total_pages:
+                self._known_completed.add(sender_addr)
 
         # Check if network is consistent.
         if data_unit.version == self.version and \
