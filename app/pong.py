@@ -35,20 +35,6 @@ class Message(utils.pdu.PDU):
         "TOPO_PING",    # Broadcasts a ping to get neighbour information.
         "TOPO_PONG",    # Responds to neighbours TOPO_PING
 
-        # Upgrade related messages.
-        # - To initiate upgrade, start Pong app in Mode.UPGRADE mode.
-        # 1. This sends out a UPGRADE_FLOOD message with the current revision.
-        # 2. Upon receiving this UPGRADE_FLOOD message, nodes check if they are
-        #    behind or ahead of this advertised revision.
-        # 3. If a node is ahead, ignore message and respond with a PING.
-        # 4. If the node is behind, send an UPGRADE_REQ message with its current revision.
-        # 5. Only the node with in UPGRADE mode will respond to UPGRADE_REQs with UPGRADE_PATCH
-        #    which contain the git patches to upgrade.
-        # 6. Once a node is up-to-date, it responds with a PING
-        "UPGRADE_FLOOD",
-        "UPGRADE_REQ",
-        "UPGRADE_PATCH",
-
         # Make command. Runs a makefile target remotely.
         "MAKE",
     ]
@@ -81,29 +67,8 @@ class Message(utils.pdu.PDU):
     def _init_pl_set(self):
         self.power_level = struct.unpack(self.PL_FORMAT, self.message)[0]
 
-    def _init_upgrade_flood(self):
-        self.rev = self.message
-
-    def _init_upgrade_req(self):
-        self.rev = self.message
-
-    def _init_upgrade_patch(self):
-        self.from_rev = self.message[:self.REV_SIZE]
-        self.to_rev = self.message[self.REV_SIZE:2 * self.REV_SIZE]
-        self.patch = self.message[2 * self.REV_SIZE:]
-
     def _init_make(self):
         self.target = self.message
-
-    def _repr_upgrade_flood(self):
-        return "%s, current_rev = %s" % (self.type, self.rev)
-
-    def _repr_upgrade_req(self):
-        return "%s, current_rev = %s" % (self.type, self.rev)
-
-    def _repr_upgrade_patch(self):
-        return "%s, from_rev = %s, to_rev = %s, size = %s" % \
-            (self.type, self.from_rev, self.to_rev, len(self.patch))
 
     def _repr_topo_pong(self):
         return "%6s, %s" % (self.type, self.recipient_addr)
@@ -150,18 +115,6 @@ class Message(utils.pdu.PDU):
         return cls(cls.TOPO_PONG, message)
 
     @classmethod
-    def create_upgrade_flood(cls, rev):
-        return cls(cls.UPGRADE_FLOOD, rev)
-
-    @classmethod
-    def create_upgrade_req(cls, rev):
-        return cls(cls.UPGRADE_REQ, rev)
-
-    @classmethod
-    def create_upgrade_patch(cls, from_rev, to_rev, patch):
-        return cls(cls.UPGRADE_PATCH, "".join([from_rev, to_rev, patch]))
-
-    @classmethod
     def create_make(cls, target):
         return cls(cls.MAKE, target)
 
@@ -179,8 +132,6 @@ class Mode(object):
     TOPO_REQ = 'toporeq'
     TOPO_FLOOD = 'topoflood'
 
-    # Upgrade mode: Request and send git patches to nodes.
-    UPGRADE = 'upgrade'
     MAKE = 'make'
 
 
@@ -205,9 +156,6 @@ class Pong(net.layers.application.Application):
         # Timers
         self._topo_res_timer = None
         self._topo_flood_timer = None
-
-        # Other states
-        self._sent_upgrade_patches = {}
 
     def set_xbee(self, xbee):
         self.xbee = xbee
@@ -260,43 +208,9 @@ class Pong(net.layers.application.Application):
                 self.xbee.set_power_level(message.power_level)
             self.send_pong()
 
-        # UPGRADE related messages.
-        if message.is_upgrade_flood() and self.mode != Mode.UPGRADE:
-            if utils.git.has_revision(message.rev):
-                self.send_pong(dest_addr=sender_addr)
-            else:
-                self.send_upgrade_req(dest_addr=sender_addr)
-
-        if message.is_upgrade_patch() and self.mode == Mode.NORMAL:
-            # Check if patch is applicable for this node.
-            if message.from_rev == utils.git.get_current_revision():
-                output = utils.git.apply_patch(message.patch)
-                self.log("Applying Patch: %s" % output)
-                self.send_pong(addition_msg=output[:50], dest_addr=sender_addr)
-
-        if message.is_upgrade_req() and self.mode == Mode.UPGRADE:
-            # Check if we've sent the patch before
-            # TODO: Check the time since sent, perhaps resend after x secs?
-            # if (message.rev, self.rev) in self._sent_upgrade_patches:
-            #     return
-            patch = utils.git.get_patch_for_revision(from_rev=message.rev, to_rev=self.rev)
-            upgrade_patch = Message.create_upgrade_patch(
-                from_rev=message.rev, to_rev=self.rev, patch=patch)
-            self._sent_upgrade_patches[(message.rev, self.rev)] = datetime.datetime.now()
-            self._send_message(upgrade_patch, dest_addr=net.layers.base.FLOOD_ADDRESS)
-
         if message.is_make() and self.mode != Mode.MAKE:
             output = utils.cli.call(["make", message.target])
             self.send_pong(addition_msg=output[:50], dest_addr=sender_addr)
-
-    def send_upgrade_req(self, dest_addr):
-        current_rev = utils.git.get_current_revision()
-        upgrade_req = Message.create_upgrade_req(current_rev)
-        self._send_message(upgrade_req, dest_addr=dest_addr)
-
-    def send_upgrade_flood(self):
-        upgrade_flood = Message.create_upgrade_flood(self.rev)
-        self._send_message(upgrade_flood, dest_addr=net.layers.base.FLOOD_ADDRESS)
 
     def _get_neighbours(self):
         # Determine neighbours
@@ -432,10 +346,6 @@ def main(args):
             app.send_topo_flood()
             time.sleep(2)
 
-        if once and args.mode == Mode.UPGRADE:
-            once = False
-            app.send_upgrade_flood()
-
         if once and args.mode == Mode.MAKE:
             assert args.target
             once = False
@@ -448,7 +358,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Pong Application')
     parser.add_argument('--mode', '-m', type=str, default=Mode.NORMAL,
                         choices=[Mode.NORMAL, Mode.PING, Mode.TIME, Mode.POWER,
-                            Mode.TOPO_REQ, Mode.TOPO_FLOOD, Mode.UPGRADE, Mode.MAKE])
+                            Mode.TOPO_REQ, Mode.TOPO_FLOOD, Mode.MAKE])
     # Power Level.
     parser.add_argument('--value', type=int, default=4, choices=[0,1,2,3,4])
     # XBee configuration
@@ -456,8 +366,6 @@ if __name__ == '__main__':
                         help='Serial port')
     parser.add_argument('-b', '--baudrate', default=57600, type=int,
                         help='Baudrate')
-    # Upgrade mode.
-    parser.add_argument("--rev", type=str, help="Revision to upgrade to.")
     # Make mode.
     parser.add_argument("--target", type=str,
                         help="Makefile target to remotely execute in network.")
