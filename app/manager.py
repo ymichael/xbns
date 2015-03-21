@@ -57,13 +57,13 @@ class ManagerPDU(utils.pdu.PDU):
         self.rx_max = x[13]
 
     def _repr_ctrl(self):
-        return "%4s, %s, d = %s/%s, r = %s/%s k = %s, t_min = %s, t_max = %s, delay = %s, \
-frame_delay = %s, t_r = %s, t_tx = %s, w = %s, rx_max = %s" % \
-            (self.type, Protocol.get_name(self.protocol),
-                self.d_page_size, self.d_packet_size,
-                self.r_page_size, self.r_packet_size,
-                self.k, self.t_min, self.t_max, self.delay, self.frame_delay,
-                self.t_r, self.t_tx, self.w, self.rx_max)
+        format = "%4s, %s, d = %s/%s, r = %s/%s k = %s, t_min = %s, t_max = %s, " + \
+            "delay = %s, frame_delay = %s, t_r = %s, t_tx = %s, w = %s, rx_max = %s"
+        return format % (self.type, Protocol.get_name(self.protocol),
+            self.d_page_size, self.d_packet_size,
+            self.r_page_size, self.r_packet_size,
+            self.k, self.t_min, self.t_max, self.delay, self.frame_delay,
+            self.t_r, self.t_tx, self.w, self.rx_max)
 
     @classmethod
     def create_ctrl(cls,
