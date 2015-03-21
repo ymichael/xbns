@@ -14,11 +14,7 @@ import utils.pdu
 class Protocol(object):
     DELUGE = 0
     RATELESS = 1
-
-    NAMES = [
-        "deluge",
-        "rateless",
-    ]
+    NAMES = ["deluge", "rateless"]
 
     @classmethod
     def get_protocol(cls, string):
@@ -31,11 +27,13 @@ class Protocol(object):
 
 class Mode(object):
     # Run the protocols normally with the given parameters.
-    NORMAL_MODE = "NORMAL"
+    NORMAL = "NORMAL"
     # Update already running protocols to the given parameters (OTA).
-    CONTROL_MODE = "CONTROL"
+    CONTROL = "CONTROL"
     # Listen mode, don't interupt current protocol.
-    LISTEN_MODE = "LISTEN"
+    LISTEN = "LISTEN"
+    # Ping mode, force send ADV.
+    PING = "PING"
 
 
 class ManagerPDU(utils.pdu.PDU):
@@ -166,14 +164,14 @@ class Manager(net.layers.application.Application):
     def _process_ping(self):
         self._send_ack()
         # Get active protocol to send ADV is in normal mode.
-        if self.mode == Mode.NORMAL_MODE:
+        if self.mode == Mode.NORMAL:
             active = self.apps[self.PROTOCOL]
             active.protocol._send_adv(force=True)
 
     def _process_ctrl(self, data_unit):
         self._send_ack()
         self._update_ctrl_parameters(data_unit)
-        if self.mode == Mode.NORMAL_MODE:
+        if self.mode == Mode.NORMAL:
             self.delay_start_active(self.DELAY)
 
     def _update_ctrl_parameters(self, data_unit):
@@ -323,21 +321,23 @@ def main(args):
     # Start.
     seed_data = args.file.read()
     args.file.close()
-    if manager.mode == Mode.NORMAL_MODE:
+    if manager.mode == Mode.NORMAL:
         manager.start_normal(seed_data, args.version)
-    if manager.mode == Mode.LISTEN_MODE:
-        manager._send_ping()
     while True:
-        if manager.mode == Mode.CONTROL_MODE:
+        if manager.mode == Mode.PING:
+            manager._send_ping()
+            time.sleep(2)
+        elif manager.mode == Mode.CONTROL:
             manager._send_ctrl()
-        time.sleep(5)
+            time.sleep(5)
+        else:
+            time.sleep(100)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Manager Application')
-    parser.add_argument('--mode', '-m', type=str, default=Mode.NORMAL_MODE,
-                        choices=[Mode.NORMAL_MODE, Mode.CONTROL_MODE,
-                            Mode.LISTEN_MODE])
+    parser.add_argument('--mode', '-m', type=str, default=Mode.NORMAL,
+                        choices=[Mode.NORMAL, Mode.CONTROL, Mode.LISTEN, Mode.PING])
 
     seed = parser.add_argument_group('Protocol Seed Data')
     seed.add_argument('--file', '-f', type=argparse.FileType(), required=True,
