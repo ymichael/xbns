@@ -137,6 +137,11 @@ class Manager(net.layers.application.Application):
         self.rateless.stop_protocol()
         self._start_timer = None
 
+        # Used to ensure that all nodes in the network received the CTRL/PING
+        # messages.
+        self.nodes = None
+        self.heard_from = set()
+
     def _create_protocol_applications(self):
         self.apps[Protocol.DELUGE] = app.deluge.Deluge.create_and_run_application()
         self.apps[Protocol.RATELESS] = \
@@ -144,6 +149,13 @@ class Manager(net.layers.application.Application):
 
     def set_mode(self, mode):
         self.mode = mode
+
+    def set_nodes(self, nodes):
+        if nodes is None:
+            return
+        self.nodes = set(nodes)
+        if self.addr in self.nodes:
+            self.nodes.remove(self.addr)
 
     @property
     def deluge(self):
@@ -156,20 +168,22 @@ class Manager(net.layers.application.Application):
     def _handle_incoming_message(self, message, sender_addr):
         data_unit = ManagerPDU.from_string(message)
         self._log_receive_pdu(data_unit, sender_addr)
+        if data_unit.is_ack():
+            self.heard_from.add(sender_addr)
         if data_unit.is_ctrl():
+            self._send_ack(sender_addr)
             self._process_ctrl(data_unit)
         if data_unit.is_ping():
+            self._send_ack(sender_addr)
             self._process_ping()
 
     def _process_ping(self):
-        self._send_ack()
         # Get active protocol to send ADV is in normal mode.
         if self.mode == Mode.NORMAL:
             active = self.apps[self.PROTOCOL]
             active.protocol._send_adv(force=True)
 
     def _process_ctrl(self, data_unit):
-        self._send_ack()
         self._update_ctrl_parameters(data_unit)
         if self.mode == Mode.NORMAL:
             self.delay_start_active(self.DELAY)
@@ -252,7 +266,34 @@ class Manager(net.layers.application.Application):
         if data or version:
             active.disseminate(data, version)
 
-    def _send_ctrl(self):
+    def send_ctrl(self):
+        if self.nodes is None or len(self.heard_from):
+            self._send_ctrl()
+        elif self.nodes == self.heard_from:
+            pass # Don't send if all nodes have responsed.
+        elif float(len(self.heard_from)) / len(self.nodes) < .5:
+            # Flood network if heard from less than half the nodes.
+            self._send_ctrl()
+        else:
+            # Send directed packets to each node that has not responded.
+            for n in (self.nodes - self.heard_from):
+                self._send_ctrl(n)
+
+    def send_ping(self):
+        if self.nodes is None or len(self.heard_from):
+            self._send_ping()
+        elif self.nodes == self.heard_from:
+            pass # Don't send if all nodes have responsed.
+        elif float(len(self.heard_from)) / len(self.nodes) < .5:
+            # Flood network if heard from less than half the nodes.
+            self._send_ping()
+        else:
+            # Send directed packets to each node that has not responded.
+            for n in (self.nodes - self.heard_from):
+                self._send_ping(n)
+
+
+    def _send_ctrl(self, dest_addr=net.layers.base.FLOOD_ADDRESS):
         ctrl = ManagerPDU.create_ctrl(
             protocol=self.PROTOCOL,
             d_page_size=self.D_PAGE_SIZE,
@@ -268,15 +309,15 @@ class Manager(net.layers.application.Application):
             t_tx=self.T_TX,
             w=self.W,
             rx_max=self.RX_MAX)
-        self._send_pdu(ctrl, dest_addr=net.layers.base.FLOOD_ADDRESS)
+        self._send_pdu(ctrl, dest_addr=dest_addr)
 
-    def _send_ack(self):
+    def _send_ack(self, dest_addr):
         ack = ManagerPDU.create_ack()
-        self._send_pdu(ack, dest_addr=net.layers.base.FLOOD_ADDRESS)
+        self._send_pdu(ack, dest_addr=dest_addr)
 
-    def _send_ping(self):
+    def _send_ping(self, dest_addr=net.layers.base.FLOOD_ADDRESS):
         ping = ManagerPDU.create_ping()
-        self._send_pdu(ping, dest_addr=net.layers.base.FLOOD_ADDRESS)
+        self._send_pdu(ping, dest_addr=dest_addr)
 
     def _send_pdu(self, data_unit, dest_addr=None):
         self._log_send_pdu(data_unit)
@@ -301,6 +342,7 @@ class Manager(net.layers.application.Application):
 def main(args):
     manager = Manager.create_and_run_application()
     manager.set_mode(args.mode)
+    manager.set_nodes(args.nodes)
     control_pdu = ManagerPDU.create_ctrl(
         protocol=Protocol.get_protocol(args.protocol),
         d_page_size=args.dpagesize,
@@ -325,11 +367,11 @@ def main(args):
         manager.start_normal(seed_data, args.version)
     while True:
         if manager.mode == Mode.PING:
-            manager._send_ping()
+            manager.send_ping()
             time.sleep(2)
         elif manager.mode == Mode.CONTROL:
-            manager._send_ctrl()
-            time.sleep(5)
+            manager.send_ctrl()
+            time.sleep(2)
         else:
             time.sleep(100)
 
@@ -377,6 +419,9 @@ if __name__ == '__main__':
     rateless.add_argument('--rpacketsize', type=int, default=45,
                           help='Rateless: The number of bytes in each packet.')
 
+    network = parser.add_argument_group('Network Configuration')
+    network.add_argument('-n', '--nodes', type=int, metavar='NODES', nargs='+',
+                         help='The node ids of the nodes in the network.')
 
     args = parser.parse_args()
     main(args)
