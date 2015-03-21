@@ -84,6 +84,9 @@ clearlogs:
 
 reset: clearlogs setup
 
+monitorlog:
+	PYTHONPATH=. python log/monitor.py $(ARGS)
+
 # rsync repository with beaglebone (w/o makefile)
 rsync:
 	rsync -avz \
