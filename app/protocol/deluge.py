@@ -54,7 +54,7 @@ class DelugePDU(utils.pdu.PDU):
     def _repr_adv(self):
         return "%4s, %2s, %2s, %3s, %s, %s" % \
             (self.type, self.version, self.largest_completed_page,
-                    self.total_pages, self.data_hash, self.known_completed)
+                    self.total_pages, self.data_hash, sorted(self.known_completed))
 
     def _repr_req(self):
         return "%4s, request_from: %s, %2s %s" % \
@@ -188,6 +188,7 @@ class Deluge(app.protocol.base.Base):
             data = self.get_data()
             self.set_data_hash(data)
             self.received(data)
+            self._known_completed.add(self.addr)
 
     def __init__(self):
         super(Deluge, self).__init__()
