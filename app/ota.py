@@ -131,10 +131,8 @@ class OTA(app.data_dissemination.DataDissemination):
         ota_pdu = OTAPDU.from_string(data)
         self._log_receive_pdu(ota_pdu, 'protocol')
         assert ota_pdu.is_patch()
-        if utils.git.get_current_revision() == ota_pdu.from_rev:
-            utils.git.apply_patch(ota_pdu.patch)
-            # Send an ADV back to upgrader.
-            self._send_adv(self.seed_addr)
+        utils.git.try_apply_patch(ota_pdu.from_rev, ota.to_rev, ota_pdu.patch)
+        self._send_adv(self.seed_addr)
 
     def _log(self, message):
         prefix = "(%s)" % self.addr

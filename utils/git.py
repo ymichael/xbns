@@ -13,8 +13,8 @@ def get_current_revision():
 def has_revision(rev):
     return cli.call(["git", "cat-file", "-t", rev]) == "commit"
 
-def reset_hard_head():
-    return cli.call(["git", "reset", "--hard", "HEAD"])
+def reset_hard(rev="HEAD"):
+    return cli.call(["git", "reset", "--hard", rev])
 
 
 def get_revision_date(rev):
@@ -39,23 +39,26 @@ def set_user_and_email():
     cli.call(["git", "config", "user.name", name])
 
 
-def apply_patch(compressed_patch):
+def try_apply_patch(from_rev, to_rev, compressed_patch):
     # The time is updated for the commits to have the same hash.
     output = cli.call(['date'])
     if "2014" in output or "UTC" in output:
         return
     set_user_and_email()
-
+    if not has_revision(from_rev):
+        return
+    # Store original revision to rollback (in case).
+    original_rev = get_current_revision()
+    # 1. reset --hard to from_rev
+    reset_hard(from_rev)
+    # 2. Apply patch
     patch = bz2.decompress(compressed_patch)
     with tempfile.NamedTemporaryFile() as temp:
         temp.write(patch)
         temp.flush()
-
-        # Reset hard HEAD.
-        # TODO: Figure out a way to get this value.
-        counter = 100
-        output = reset_hard_head()
         args = ["git", "am", "--reject", "--committer-date-is-author-date", temp.name]
+        # Fail safe
+        counter = 100
         while counter:
             try:
                 output = subprocess.check_output(args)
@@ -63,19 +66,22 @@ def apply_patch(compressed_patch):
             except subprocess.CalledProcessError, e:
                 ["git", "am", "--committer-date-is-author-date", "--skip"]
                 counter -= 1
-        reset_hard_head()
-        return output
-
-
+    # Check patch application.
+    if get_current_revision() == to_rev:
+        # 3. reset --hard to to_rev
+        reset_hard()
+    else:
+        print "Patch failed, expected %s, got %s" % (to_rev, get_current_revision())
+        reset_hard(original_rev)
+    return
 
 
 def main():
     print get_current_revision()
     print has_revision("50033fe")
     print get_revision_date("50033fe")
-    # patch = get_patch_for_revision("b529507")
-    # cli.call(["git", "reset", "--hard", "HEAD^"])
-    # apply_patch(patch)
+    cur_rev = get_current_revision()
+    try_apply_patch("d9e421a", cur_rev, get_patch_for_revision("d9e421a", cur_rev))
 
 
 if __name__ == '__main__':
