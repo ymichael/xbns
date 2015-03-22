@@ -131,7 +131,7 @@ class OTA(app.data_dissemination.DataDissemination):
         ota_pdu = OTAPDU.from_string(data)
         self._log_receive_pdu(ota_pdu, 'protocol')
         assert ota_pdu.is_patch()
-        utils.git.try_apply_patch(ota_pdu.from_rev, ota.to_rev, ota_pdu.patch)
+        utils.git.try_apply_patch(ota_pdu.from_rev, ota_pdu.to_rev, ota_pdu.patch)
         self._send_adv(self.seed_addr)
 
     def _log(self, message):
