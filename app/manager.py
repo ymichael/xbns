@@ -267,10 +267,11 @@ class Manager(net.layers.application.Application):
             active.disseminate(data, version)
 
     def send_ctrl(self):
-        if self.nodes is None or len(self.heard_from):
+        if self.nodes is None or not len(self.heard_from):
             self._send_ctrl()
         elif self.nodes == self.heard_from:
             pass # Don't send if all nodes have responsed.
+            self.log("All nodes responded.")
         elif float(len(self.heard_from)) / len(self.nodes) < .5:
             # Flood network if heard from less than half the nodes.
             self._send_ctrl()
@@ -280,10 +281,11 @@ class Manager(net.layers.application.Application):
                 self._send_ctrl(n)
 
     def send_ping(self):
-        if self.nodes is None or len(self.heard_from):
+        if self.nodes is None or not len(self.heard_from):
             self._send_ping()
         elif self.nodes == self.heard_from:
             pass # Don't send if all nodes have responsed.
+            self.log("All nodes responded.")
         elif float(len(self.heard_from)) / len(self.nodes) < .5:
             # Flood network if heard from less than half the nodes.
             self._send_ping()
