@@ -77,11 +77,11 @@ def try_apply_patch(from_rev, to_rev, compressed_patch):
     # Check patch application.
     if get_current_revision() == to_rev:
         # 3. reset --hard to to_rev
-        reset_hard()
         git_logger.debug("Patch succeeded, current revision %s" % get_current_revision())
     else:
         git_logger.debug("Patch failed, expected %s, got %s" % (to_rev, get_current_revision()))
-        reset_hard(original_rev)
+        # reset_hard(original_rev)
+    reset_hard()
     return
 
 
