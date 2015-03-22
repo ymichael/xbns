@@ -1,8 +1,5 @@
 .PHONY: start port rsync rmpyc rsync-makefile sim test app pong ping deluge rateless settime clearlogs setpower logs setup setaddr
 
-setaddr:
-	ssh michael@bone "echo $(ADDR) > ~/xbns/addr.txt"
-
 # Find out which serial port to use
 # Matches /dev/tty.usbserial && /dev/ttyUSB0
 SERIALPORT = $(shell find /dev | egrep -i "ttyUSB|tty.*usbserial")
@@ -56,9 +53,31 @@ sim:
 test:
 	PYTHONPATH=. nosetests
 
+monitorlog:
+	PYTHONPATH=. python log/monitor.py $(ARGS)
+
+# rsync repository with beaglebone (w/o makefile)
+rsync:
+	rsync -avz \
+		--include=*.py \
+		--exclude=addr.txt \
+		--exclude=log/*.txt \
+		--exclude=.venv \
+		--exclude=*.pyc \
+		--exclude=*.DS_Store \
+		--exclude=log/* \
+		--exclude=out \
+		. michael@bone:~/xbns
+
 # Used to test pong app. remote make target execution.
 yo:
 	echo YO
+
+setaddr:
+	ssh michael@bone "echo $(ADDR) > ~/xbns/addr.txt"
+
+
+## ON BEAGLEBONE.
 
 # SETUP TARGETS.
 installpong:
@@ -84,18 +103,6 @@ clearlogs:
 
 reset: clearlogs setup
 
-monitorlog:
-	PYTHONPATH=. python log/monitor.py $(ARGS)
+reboot:
+	reboot
 
-# rsync repository with beaglebone (w/o makefile)
-rsync:
-	rsync -avz \
-		--include=*.py \
-		--exclude=addr.txt \
-		--exclude=log/*.txt \
-		--exclude=.venv \
-		--exclude=*.pyc \
-		--exclude=*.DS_Store \
-		--exclude=log/* \
-		--exclude=out \
-		. michael@bone:~/xbns
