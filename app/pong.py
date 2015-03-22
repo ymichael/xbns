@@ -144,7 +144,6 @@ class Pong(net.layers.application.Application):
     def __init__(self, addr):
         super(Pong, self).__init__(addr)
         self.mode = None
-        self.rev = utils.git.get_current_revision()
         self.xbee = None
         self.topo_pongs = {}
 
@@ -164,9 +163,6 @@ class Pong(net.layers.application.Application):
         self.mode = mode
         if self.mode is Mode.NORMAL:
             self.start_normal()
-
-    def set_rev(self, rev):
-        self.rev = rev
 
     def start_normal(self):
         time.sleep(10)
@@ -317,7 +313,6 @@ def main(args):
 
     app = Pong.create_and_run_application()
     app.set_mode(args.mode)
-    app.set_rev(args.rev or utils.git.get_current_revision())
     app.set_xbee(xbee_radio)
 
     once = True
