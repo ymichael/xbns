@@ -26,7 +26,7 @@ upgrade:
 	PYTHONPATH=. python app/pong.py -m upgrade --port=$(SERIALPORT)
 
 make:
-	PYTHONPATH=. python app/pong.py -m make --port=$(SERIALPORT) --target=$(TARGET)
+	PYTHONPATH=. python app/pong.py -m make --port=$(SERIALPORT) $(ARGS)
 
 ping:
 	PYTHONPATH=. python app/pong.py -m ping --port=$(SERIALPORT)
@@ -36,7 +36,7 @@ logs:
 	# scp bone:~/xbns/log/* log/
 
 settime:
-	PYTHONPATH=. python app/pong.py -m time --port=$(SERIALPORT)
+	PYTHONPATH=. python app/pong.py -m time --port=$(SERIALPORT) $(ARGS)
 
 setpower:
 	PYTHONPATH=. python app/pong.py -m power --port=$(SERIALPORT) --value=$(POWER)

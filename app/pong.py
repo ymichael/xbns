@@ -156,6 +156,11 @@ class Pong(net.layers.application.Application):
         self._topo_res_timer = None
         self._topo_flood_timer = None
 
+        # Used to ensure that all nodes in the network received a particular
+        # message.
+        self.nodes = None
+        self.heard_from = set()
+
     def set_xbee(self, xbee):
         self.xbee = xbee
 
@@ -163,6 +168,13 @@ class Pong(net.layers.application.Application):
         self.mode = mode
         if self.mode is Mode.NORMAL:
             self.start_normal()
+
+    def set_nodes(self, nodes):
+        if nodes is None:
+            return
+        self.nodes = set(nodes)
+        if self.addr in self.nodes:
+            self.nodes.remove(self.addr)
 
     def start_normal(self):
         time.sleep(10)
@@ -191,18 +203,21 @@ class Pong(net.layers.application.Application):
         if message.is_time_set():
             utils.timespec.TimeSpec.set_time(message.time_tuple)
             self._time_is_set = True
-            self.send_pong_flood()
+            self.send_pong(dest_addr=sender_addr)
 
         if message.is_time_req():
-            self.send_time_set()
+            self._send_time_set(dest_addr=sender_addr)
 
         if message.is_ping():
-            self.send_pong()
+            self.send_pong(dest_addr=sender_addr)
 
         if message.is_pl_set():
             if self.xbee is not None:
                 self.xbee.set_power_level(message.power_level)
             self.send_pong()
+
+        if message.is_pong():
+            self.heard_from.add(sender_addr)
 
         if message.is_make() and self.mode != Mode.MAKE:
             output = utils.cli.call(["make", message.target])
@@ -282,24 +297,48 @@ class Pong(net.layers.application.Application):
             time_tuple, current_rev, addition_msg=addition_msg)
         self._send_message(pong, dest_addr=dest_addr)
 
-    def send_pong_flood(self, addition_msg=""):
-        self.send_pong(
-            addition_msg=addition_msg,
-            dest_addr=net.layers.base.FLOOD_ADDRESS)
-
-    def send_time_set(self):
-        time_set = Message.create_time_set(
-            utils.timespec.TimeSpec.get_current_time())
-        self._send_message(time_set, dest_addr=net.layers.base.FLOOD_ADDRESS)
-
     def send_pl_set(self, value):
         pl_set = Message.create_pl_set(value)
         self._handle_incoming_inner(pl_set)
         self._send_message(pl_set)
 
-    def send_make_flood(self, target):
+    def send_make(self, target):
+        if self.nodes is None or not len(self.heard_from):
+            self._send_make(target)
+        elif self.nodes == self.heard_from:
+            pass # Don't send if all nodes have responsed.
+            self.log("All nodes responded.")
+        elif float(len(self.heard_from)) / len(self.nodes) < .5:
+            # Flood network if heard from less than half the nodes.
+            self._send_make(target)
+        else:
+            # Send directed packets to each node that has not responded.
+            for n in (self.nodes - self.heard_from):
+                self._send_make(target, dest_addr=n)
+
+    def _send_make(self, target, dest_addr=net.layers.base.FLOOD_ADDRESS):
         make = Message.create_make(target)
-        self._send_message(make, dest_addr=net.layers.base.FLOOD_ADDRESS)
+        self._send_message(make, dest_addr=dest_addr)
+
+    def send_time_set(self):
+        if self.nodes is None or not len(self.heard_from):
+            self._send_time_set()
+        elif self.nodes == self.heard_from:
+            pass # Don't send if all nodes have responsed.
+            self.log("All nodes responded.")
+        elif float(len(self.heard_from)) / len(self.nodes) < .5:
+            # Flood network if heard from less than half the nodes.
+            self._send_time_set()
+        else:
+            # Send directed packets to each node that has not responded.
+            for n in (self.nodes - self.heard_from):
+                self._send_time_set(n)
+
+
+    def _send_time_set(self, dest_addr=net.layers.base.FLOOD_ADDRESS):
+        time_set = Message.create_time_set(
+            utils.timespec.TimeSpec.get_current_time())
+        self._send_message(time_set, dest_addr=dest_addr)
 
     def _send_message(self, message, dest_addr=None):
         self._send(message.to_string(), dest_addr=dest_addr)
@@ -313,6 +352,7 @@ def main(args):
 
     app = Pong.create_and_run_application()
     app.set_mode(args.mode)
+    app.set_nodes(args.nodes)
     app.set_xbee(xbee_radio)
 
     once = True
@@ -320,10 +360,6 @@ def main(args):
         if args.mode == Mode.PING:
             app.send_ping()
             time.sleep(1)
-
-        if args.mode == Mode.TIME:
-            app.send_time_set()
-            time.sleep(5)
 
         if args.mode == Mode.POWER:
             if once:
@@ -341,10 +377,13 @@ def main(args):
             app.send_topo_flood()
             time.sleep(2)
 
-        if once and args.mode == Mode.MAKE:
+        if args.mode == Mode.TIME:
+            app.send_time_set()
+            time.sleep(2)
+
+        if args.mode == Mode.MAKE:
             assert args.target
-            once = False
-            app.send_make_flood(args.target)
+            app.send_make(args.target)
 
         time.sleep(1)
 
@@ -354,6 +393,8 @@ if __name__ == '__main__':
     parser.add_argument('--mode', '-m', type=str, default=Mode.NORMAL,
                         choices=[Mode.NORMAL, Mode.PING, Mode.TIME, Mode.POWER,
                             Mode.TOPO_REQ, Mode.TOPO_FLOOD, Mode.MAKE])
+    parser.add_argument('-n', '--nodes', type=int, metavar='NODES', nargs='+',
+                        help='The node ids of the nodes in the network.')
     # Power Level.
     parser.add_argument('--value', type=int, default=4, choices=[0,1,2,3,4])
     # XBee configuration

@@ -294,7 +294,6 @@ class Manager(net.layers.application.Application):
             for n in (self.nodes - self.heard_from):
                 self._send_ping(n)
 
-
     def _send_ctrl(self, dest_addr=net.layers.base.FLOOD_ADDRESS):
         ctrl = ManagerPDU.create_ctrl(
             protocol=self.PROTOCOL,
