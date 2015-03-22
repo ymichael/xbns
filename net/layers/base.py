@@ -1,9 +1,6 @@
-import config
-import logging
-import logging.handlers
 import Queue as queue
-import sys
 import threading
+import utils.logger
 
 # 65535 => \xff\xff
 BROADCAST_ADDRESS = 65535
@@ -19,19 +16,7 @@ class BaseLayer(object):
 
     def _init_logger(self):
         # Each layer has a logger that logs to the console.
-        self.logger = logging.getLogger(self.__class__.__name__)
-        # TODO: Refactor debug level as a cli argument.
-        self.logger.setLevel(logging.DEBUG)
-        if len(self.logger.handlers) == 0:
-            formatter = logging.Formatter("%(name)s - %(levelname)s - %(asctime)s: %(message)s")
-            stream_handler = logging.StreamHandler(sys.stdout)
-            stream_handler.setFormatter(formatter)
-            self.logger.addHandler(stream_handler)
-            if config.SHOULD_LOG:
-                file_handler = logging.handlers.RotatingFileHandler(
-                    config.LOG_FILE_NAME, backupCount=20, maxBytes=5242880)
-                file_handler.setFormatter(formatter)
-                self.logger.addHandler(file_handler)
+        self.logger = utils.logger.get_logger(self.__class__.__name__)
         self.logger.info("Starting up.")
 
     def start_handling_incoming(self, queue):

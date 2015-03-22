@@ -1,8 +1,13 @@
 import bz2
 import cli
 import datetime
+import logger
 import subprocess
 import tempfile
+
+
+git_logger = logger.get_logger("utils.git")
+
 
 def get_current_revision():
     rev = cli.call(["git", "rev-parse", "--short", "HEAD"])
@@ -33,6 +38,7 @@ def get_patch_for_revision(from_rev, to_rev="HEAD"):
 
 def set_user_and_email():
     # TODO: extract this somehow.
+    git_logger.debug("Setting git user and email.")
     email = "wrong92@gmail.com"
     name = "Michael Yong"
     cli.call(["git", "config", "user.email", email])
@@ -43,11 +49,13 @@ def try_apply_patch(from_rev, to_rev, compressed_patch):
     # The time is updated for the commits to have the same hash.
     output = cli.call(['date'])
     if "2014" in output or "UTC" in output:
+        git_logger.error("Time is not up-to-date.")
         return
     set_user_and_email()
     if not has_revision(from_rev):
         return
     # Store original revision to rollback (in case).
+    git_logger.debug("Trying to apply patch.")
     original_rev = get_current_revision()
     # 1. reset --hard to from_rev
     reset_hard(from_rev)
@@ -70,8 +78,9 @@ def try_apply_patch(from_rev, to_rev, compressed_patch):
     if get_current_revision() == to_rev:
         # 3. reset --hard to to_rev
         reset_hard()
+        git_logger.debug("Patch succeeded, current revision %s" % get_current_revision())
     else:
-        print "Patch failed, expected %s, got %s" % (to_rev, get_current_revision())
+        git_logger.debug("Patch failed, expected %s, got %s" % (to_rev, get_current_revision()))
         reset_hard(original_rev)
     return
 
