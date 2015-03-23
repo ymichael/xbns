@@ -26,7 +26,7 @@ def main(args):
 
 
 def play_sound():
-    subprocess.call(["afplay", "-v", 50, "/System/Library/Sounds/Pop.aiff"])
+    subprocess.call(["afplay", "-v", "50", "/System/Library/Sounds/Pop.aiff"])
 
 
 if __name__ == '__main__':
