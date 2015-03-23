@@ -467,6 +467,7 @@ class Deluge(app.protocol.base.Base):
             if len(self.complete_pages) == self.total_pages and \
                     self._known_completed != set(data_unit.known_completed):
                 self._set_inconsistent()
+                self._start_next_round(delay=0)
                 return
             # Network is consistent if summary overheard is similar to self.
             self.adv_overheard += 1
