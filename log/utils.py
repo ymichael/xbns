@@ -6,24 +6,39 @@ import tabulate
 
 
 class LogLine(object):
-    def __init__(self, timestamp, log_level, protocol, message, original,
-            addr=None, state=None, version=None, completed_pages=None,
-            total_pages=None, t=None, pdu=None, pdu_source_addr=None,
-            pdu_repr=None):
+    __slots__ = [
+        "timestamp",
+        "log_level",
+        "protocol",
+        "message",
+        "original",
+        "addr",
+        "state",
+        "version",
+        "completed_pages",
+        "total_pages",
+        "t",
+        "pdu",
+        "pdu_source_addr",
+        "pdu_repr",
+    ]
+
+    def __init__(self, timestamp, log_level, protocol, message, original):
         self.timestamp = timestamp
         self.log_level = log_level
         self.protocol = protocol
         self.message = message
         self.original = original
-        self.addr = addr
-        self.state = state
-        self.version = version
-        self.completed_pages = completed_pages
-        self.total_pages = total_pages
-        self.t = t
-        self.pdu = pdu
-        self.pdu_source_addr = pdu_source_addr
-        self.pdu_repr = pdu_repr
+
+        self.addr = None
+        self.state = None
+        self.version = None
+        self.completed_pages = None
+        self.total_pages = None
+        self.t = None
+        self.pdu = None
+        self.pdu_source_addr = None
+        self.pdu_repr = None
 
     def __lt__(self, other):
         return self.timestamp < other.timestamp
@@ -38,11 +53,18 @@ class LogLine(object):
         return self.timestamp <= other.timestamp
 
 
+LOG_PREFIX_RE = re.compile("(.*?) - (.*?) - ([0-9\-:,\s]*):(.*)")
+DELUGE_PREFIX_RE = re.compile("\((.*?), (.*?), \[v(.*?), (.*?)\/(.*?)\], (.*?)\) - (.*)")
+MANAGER_PREFIX_RE = re.compile("\((.*?), (.*?), D=(.*?), R=(.*?), k = (.*?), t_min = (.*?), t_max = (.*?), delay = (.*?)\) - (.*)")
+RECEIVE_PDU_PREFIX_RE = re.compile("Received message from (.*?): (.*)")
+SEND_PDU_PREFIX_RE = re.compile("Sending message \(.*?\): (.*)")
+
+
 def parse_log_line(line):
     """Takes a line from the logs and attempts to parse it."""
     # Prefix format.
     # %(name)s - %(levelname)s - %(asctime)s: %(message)s
-    matches = re.match("(.*?) - (.*?) - ([0-9\-:,\s]*):(.*)", line)
+    matches = LOG_PREFIX_RE.match(line)
     if matches is None:
         return None
     groups = matches.groups()
@@ -62,45 +84,54 @@ def parse_log_line(line):
     h, m, s = time.split(":")
     timestamp = datetime.datetime(int(year), int(month), int(day), int(h), int(m), int(s), int(micros))
 
+    logline = LogLine(timestamp, log_level, protocol, message, line.strip())
     # Try to parse message
-    msg_matches = re.match("\((.*?), (.*?), \[v(.*?), (.*?)\/(.*?)\], (.*?)\) - (.*)", message)
-    if msg_matches is None:
-        return LogLine(timestamp=timestamp, log_level=log_level, original=line,
-                       protocol=protocol, message=message)
+    # Deluge/Rateless prefix:
+    # eg. RatelessDeluge - INFO - 2015-03-12 16:38:17,096: (20,  MAIN, [v0, 00/00],  600) - Application started!
+    msg_matches = DELUGE_PREFIX_RE.match(message)
+    if msg_matches is not None:
+        msg_groups = msg_matches.groups()
+        logline.addr = int(msg_groups[0])
+        logline.state = msg_groups[1]
+        logline.version = int(msg_groups[2])
+        logline.completed_pages = int(msg_groups[3])
+        logline.total_pages = int(msg_groups[4])
+        logline.t = float(msg_groups[5])
+        logline.pdu = msg_groups[6].strip()
 
-    msg_groups = msg_matches.groups()
-    addr = int(msg_groups[0])
-    state = msg_groups[1]
-    version = int(msg_groups[2])
-    completed_pages = int(msg_groups[3])
-    total_pages = int(msg_groups[4])
-    t = float(msg_groups[5])
-    pdu = msg_groups[6]
+    # Try to parse manager prefix
+    # eg. Manager - INFO - 2015-03-12 16:38:18,944: ( 6, rateless, D=1020/60, R=1200/120,
+    #     k = 1, t_min = 1, t_max = 600, delay = 3) - Received message ...
+    # msg_matches = MANAGER_PREFIX_RE.match(message)
+    if protocol == "Manager":
+        message_parts = message.split(" - ")
+        # ('11', 'deluge', '6000/60', '900/45', '1', '4.0', '600', '3', 'Sending message (1): ACK')
+        # msg_groups = msg_matches.groups()
+        # logline.addr = int(msg_groups[0])
+        # logline.pdu = msg_groups[8]
+        if "(" in message and "," in message:
+            logline.addr = int(message[message.index("(") + 1:message.index(",")])
+            logline.pdu = message_parts[-1]
 
-    # Try to parse pdu.
-    if "Received message" in pdu:
+    # Try to parse pdu: (Deluge/Rateless/Manager).
+    if logline.pdu and "Received message" in logline.pdu:
         # eg. Received message from <X>: <PDU>
-        pdu_matches =  re.match("Received message from (.*?): (.*)", pdu)
-        pdu_groups = pdu_matches.groups()
-        source_addr = int(pdu_groups[0])
-        pdu_repr = pdu_groups[1]
-    elif "Sending message" in pdu:
-        # eg. Sending message (X): <PDU>
-        pdu_matches =  re.match("Sending message \(.*?\): (.*)", pdu)
-        pdu_groups = pdu_matches.groups()
-        # Self is the source.
-        source_addr = addr
-        pdu_repr = pdu_groups[0]
-    else:
-        source_addr = None
-        pdu_repr = None
+        # pdu_matches =  RECEIVE_PDU_PREFIX_RE.match(logline.pdu)
+        # pdu_groups = pdu_matches.groups()
+        # logline.pdu_source_addr = int(pdu_groups[0])
+        # logline.pdu_repr = pdu_groups[1]
+        logline.pdu_source_addr = int(logline.pdu[21:logline.pdu.index(":")])
+        logline.pdu_repr = logline.pdu[logline.pdu.index(":") + 1:]
 
-    return LogLine(timestamp=timestamp, log_level=log_level,
-                   protocol=protocol, message=message, original=line,
-                   addr=addr, state=state, version=version,
-                   completed_pages=completed_pages, total_pages=total_pages,
-                   t=t, pdu=pdu, pdu_source_addr=source_addr,
-                   pdu_repr=pdu_repr)
+    if logline.pdu and "Sending message" in logline.pdu:
+        # eg. Sending message (X): <PDU>
+        # pdu_matches =  SEND_PDU_PREFIX_RE.match(logline.pdu)
+        # pdu_groups = pdu_matches.groups()
+        # logline.pdu_repr = pdu_groups[0]
+        logline.pdu_source_addr = logline.addr
+        logline.pdu_repr = logline.pdu[logline.pdu.index(":") + 1:]
+
+    return logline
 
 
 def get_nodes(lines):
@@ -114,30 +145,34 @@ def get_version(lines):
             v_to_lines[l.version] += 1
     return max(v_to_lines.keys(), key=lambda v: v_to_lines[v])
 
+
 def get_total_pages(lines, version=None):
     version = version or get_version(lines)
     return max(l.total_pages for l in lines if l.version == version)
 
 
-
-def get_stats(lines):
-    # Nodes involved and version upgraded to.
-    nodes = get_nodes(lines)
-    version = get_version(lines)
-
+def get_t_min(lines):
     # Determine the T_MIN and the seed node for this run.
-    t_min = min(line.t for line in lines if line.t)
+    return min(line.t for line in lines if line.t)
 
-    # Start time (first message that indicated inconsistency) for each node
+
+def get_start_times(lines, nodes=None, t_min=None):
+    nodes = nodes or get_nodes(lines)
+    t_min = t_min or get_t_min(lines)
     start_times = {}
     for node in nodes:
         for line in lines:
             if line.addr == node and line.t == t_min:
                 start_times[node] = line.timestamp
                 break
+    return start_times
 
-    # Breakdown of completion times for each node
+
+def get_completion_times(lines, nodes=None, total_pages=None, version=None):
+    version = version or get_version(lines)
+    nodes = nodes or get_nodes(nodes)
     total_pages = get_total_pages(lines, version)
+    # Breakdown of completion times for each node
     completion_times = dict((n, dict()) for n in nodes)
     for page in xrange(total_pages + 1):
         for node in nodes:
@@ -147,17 +182,48 @@ def get_stats(lines):
                         line.completed_pages >= page:
                     completion_times[node][page] = line.timestamp
                     break
+    return completion_times
 
-    # Time taken for each node
+
+def get_final_times(lines, nodes=None, total_pages=None, version=None):
+    version = version or get_version(lines)
+    nodes = nodes or get_nodes(nodes)
+    total_pages = get_total_pages(lines, version)
     final_times = {}
-    for n in nodes:
-        if completion_times[n].get(total_pages):
-            final_times[n] = completion_times[n][total_pages]
+    for node in nodes:
+        for line in lines:
+            if line.addr == node and \
+                    line.version == version and \
+                    line.completed_pages >= total_pages:
+                final_times[node] = line.timestamp
+                break
+    return final_times
+
+
+def get_time_taken(nodes, start_times, final_times):
     time_taken = {}
     for node in nodes:
         if node in start_times and final_times.get(node) is not None:
             time_taken[node] = final_times[node] - start_times[node]
-    seed_addrs = set(node for node, t in time_taken.iteritems() if t.total_seconds() == 0)
+    return time_taken
+
+
+def get_seeds(time_taken):
+    return set(node for node, t in time_taken.iteritems() if t.total_seconds() == 0)
+
+
+def get_stats(lines):
+    # Nodes involved and version upgraded to.
+    nodes = get_nodes(lines)
+    version = get_version(lines)
+    t_min = get_t_min(lines)
+    total_pages = get_total_pages(lines, version)
+
+    start_times = get_start_times(lines, nodes, t_min)
+    completion_times = get_completion_times(lines, nodes, total_pages, version)
+    final_times = get_final_times(lines, nodes, total_pages, version)
+    time_taken = get_time_taken(nodes, start_times, final_times)
+    seeds = get_seeds(time_taken)
 
     # Packets sent by each node (between earliest start_time and latest completion_time)
     protocol_start = min(start_times.values())
@@ -182,7 +248,7 @@ def get_stats(lines):
     print "Run starting %s" % lines[0].timestamp.strftime("%Y-%m-%d %H:%M:%S,%f")
     print "#####################################################################"
     print "Nodes involved %s" % nodes
-    print "Seed = %s, T_MIN = %s" % (seed_addrs, t_min)
+    print "Seed = %s, T_MIN = %s" % (seeds, t_min)
     print "# Start/Completion/Total times"
     ppprint_timings(start_times, final_times, time_taken)
     print "# Completion times (breakdown, secs after seed start time.)"
@@ -281,53 +347,61 @@ def pprint_completion_times(ct):
 def sync_timings(lines):
     nodes = get_nodes(lines)
     version = get_version(lines)
-    deltas = dict((n, datetime.timedelta()) for n in nodes)
+    total_pages = get_total_pages(lines, version)
 
-    # Get the first message received from every other node
-    for node in nodes:
-        for node2 in nodes:
-            if node == node2:
+    # Get seeds.
+    t_min = get_t_min(lines)
+    start_times = get_start_times(lines, nodes, t_min)
+    final_times = get_final_times(lines, nodes, total_pages, version)
+    time_taken = get_time_taken(nodes, start_times, final_times)
+    seeds = get_seeds(time_taken)
+
+    for seed in seeds:
+        for node in nodes:
+            if node in seeds:
                 continue
-
-            first_message_received = None
+            delta = datetime.timedelta()
+            sender = seed
+            receiver = node
+            # Get messages received by receiver from sender at 10s interval.
+            messages_received = []
             for l in lines:
-                if l.addr == node and l.version == version and \
-                        l.pdu_source_addr != None and l.pdu_source_addr == node2:
-                    first_message_received = l
-                    break
-            if first_message_received is None:
-                continue
+                if not (l.addr == receiver and l.pdu_source_addr == sender):
+                    continue
+                if len(messages_received) == 0:
+                    messages_received.append(l)
+                elif abs((l.timestamp - messages_received[-1].timestamp).total_seconds()) > 10:
+                    messages_received.append(l)
+            # Find corresponding send messages.
+            for message_received in messages_received:
+                message_sent = None
+                for l in lines:
+                    if not (l.addr == sender and l.pdu_source_addr == sender):
+                        continue
+                    if l.pdu_repr.strip() != message_received.pdu_repr.strip():
+                        continue
+                    if message_sent is None:
+                        message_sent = l
+                    curr_delta = (message_sent.timestamp - message_received.timestamp).total_seconds()
+                    new_delta = (l.timestamp - message_received.timestamp).total_seconds()
+                    if abs(curr_delta) > abs(new_delta):
+                        message_sent = l
+                    else:
+                        break
+                # Correct the timings
+                if message_sent and message_sent.timestamp > message_received.timestamp:
+                    # Always correct sender to earlier timing.
+                    new_delta = message_sent.timestamp - message_received.timestamp
+                    new_delta += datetime.timedelta(milliseconds=10)
+                    delta = max(delta, new_delta)
 
-            sender = node2
-            pdu_repr = first_message_received.pdu_repr.strip()
-
-            # Search for first possible sent log
-            first_message_sent = None
+            updated_lines = []
             for l in lines:
-                if l.addr == sender and l.pdu_source_addr == sender and \
-                        l.pdu_repr and l.pdu_repr == pdu_repr:
-                    first_message_sent = l
-                    break
-            if first_message_sent is None:
-                continue
+                if l.addr == sender:
+                    l.timestamp -= delta
+                updated_lines.append(l)
+            lines = sorted(updated_lines)
 
-            # Correct the timings
-            if first_message_sent.timestamp > first_message_received.timestamp:
-                # Always correct sender to earlier timing.
-                delta = first_message_sent.timestamp - first_message_received.timestamp
-                # Add a small transmission delay
-                delta += datetime.timedelta(milliseconds=10)
-                deltas[sender] = max(delta, deltas[sender])
-
-    def correct_timing(l):
-        if l.addr is None or deltas[l.addr] == 0:
-            return l
-        else:
-            l.timestamp -= deltas[l.addr]
-            return l
-
-    lines = map(correct_timing, lines)
-    lines.sort()
     return lines
 
 
@@ -336,8 +410,6 @@ def get_log_lines(files):
 
     def is_relevant(logline):
         if logline is None:
-            return False
-        if logline.protocol == "Manager" and "CTRL" not in logline.original:
             return False
         # TODO: Investigate bug 16 mar where version goes crazy.
         if logline.version and logline.version > 100:
@@ -350,6 +422,5 @@ def get_log_lines(files):
     lines = []
     for f in files:
         lines.extend(filter(is_relevant, map(parse_log_line, f.readlines())))
-
     lines.sort()
     return lines
