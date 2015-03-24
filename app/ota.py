@@ -123,6 +123,8 @@ class OTA(app.data_dissemination.DataDissemination):
 
     def _send_patch_inner(self, version, from_rev, to_rev):
         patch = utils.git.get_patch_for_revision(from_rev, to_rev)
+        utils.git.try_apply_patch(patch, from_rev)
+        to_rev = utils.git.get_current_revision()
         ota_pdu = OTAPDU.create_patch(from_rev, to_rev, patch)
         self.log("Disseminating patch... %s, %s" % (from_rev, to_rev))
         self.disseminate(ota_pdu.to_string(), version)
@@ -131,7 +133,7 @@ class OTA(app.data_dissemination.DataDissemination):
         ota_pdu = OTAPDU.from_string(data)
         self._log_receive_pdu(ota_pdu, 'protocol')
         assert ota_pdu.is_patch()
-        utils.git.try_apply_patch(ota_pdu.from_rev, ota_pdu.to_rev, ota_pdu.patch)
+        utils.git.try_apply_patch(ota_pdu.patch, ota_pdu.from_rev, ota_pdu.to_rev)
         self._send_adv(self.seed_addr)
 
     def _log(self, message):

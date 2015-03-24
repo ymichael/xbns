@@ -45,7 +45,7 @@ def set_user_and_email():
     cli.call(["git", "config", "user.name", name])
 
 
-def try_apply_patch(from_rev, to_rev, compressed_patch):
+def try_apply_patch(compressed_patch, from_rev, to_rev=None):
     # The time is updated for the commits to have the same hash.
     output = cli.call(['date'])
     if "2014" in output or "UTC" in output:
@@ -75,12 +75,12 @@ def try_apply_patch(from_rev, to_rev, compressed_patch):
                 ["git", "am", "--committer-date-is-author-date", "--skip"]
                 counter -= 1
     # Check patch application.
-    if get_current_revision() == to_rev:
+    if to_rev and get_current_revision() == to_rev:
         # 3. reset --hard to to_rev
         git_logger.debug("Patch succeeded, current revision %s" % get_current_revision())
     else:
         git_logger.debug("Patch failed, expected %s, got %s" % (to_rev, get_current_revision()))
-        # reset_hard(original_rev)
+        reset_hard(original_rev)
     reset_hard()
     return
 
@@ -90,7 +90,7 @@ def main():
     print has_revision("50033fe")
     print get_revision_date("50033fe")
     cur_rev = get_current_revision()
-    try_apply_patch("d9e421a", cur_rev, get_patch_for_revision("d9e421a", cur_rev))
+    try_apply_patch(get_patch_for_revision("d9e421a", cur_rev), "d9e421a", cur_rev)
 
 
 if __name__ == '__main__':
