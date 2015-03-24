@@ -453,22 +453,21 @@ class Deluge(app.protocol.base.Base):
                 data_unit.total_pages != 0:
             # Update total_pages.
             self.total_pages = data_unit.total_pages
-
-            # Update known completed info.
-            for n in data_unit.known_completed:
-                self._known_completed.add(n)
             if data_unit.largest_completed_page == data_unit.total_pages:
                 self._known_completed.add(sender_addr)
+            if self._known_completed != set(data_unit.known_completed):
+                # Update known completed info.
+                for n in data_unit.known_completed:
+                    self._known_completed.add(n)
+                # Propagate known completed when completed.
+                if len(self.complete_pages) == self.total_pages:
+                    self._set_inconsistent()
+                    self._start_next_round(delay=0)
+                    return
 
         # Check if network is consistent.
         if data_unit.version == self.version and \
                 data_unit.largest_completed_page == len(self.complete_pages):
-            # Propagate known completed when completed.
-            if len(self.complete_pages) == self.total_pages and \
-                    self._known_completed != set(data_unit.known_completed):
-                self._set_inconsistent()
-                self._start_next_round(delay=0)
-                return
             # Network is consistent if summary overheard is similar to self.
             self.adv_overheard += 1
             return
