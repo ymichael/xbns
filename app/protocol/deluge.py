@@ -445,7 +445,7 @@ class Deluge(app.protocol.base.Base):
             # page currently requesting.
             if self.state == self.STATE_CLS.RX and \
                     data_unit.version == self.version and \
-                    data_unit.largest_completed_page >= self._page_to_req:
+                    data_unit.largest_completed_page > self._page_to_req:
                 self._rx_source = sender_addr
             return
 
