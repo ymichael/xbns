@@ -212,6 +212,26 @@ def get_seeds(time_taken):
     return set(node for node, t in time_taken.iteritems() if t.total_seconds() == 0)
 
 
+def get_packets_sent(lines, nodes, start_times, final_times):
+    protocol_start = min(start_times.values())
+    protocol_end = max(final_times.values())
+    # 0: ADV, 1: REQ, 2: DATA
+    packets_sent = dict((node, [0, 0, 0]) for node in nodes)
+    for line in lines:
+        if line.addr and protocol_start <= line.timestamp <= protocol_end and \
+                "Sending message" in line.message:
+            # Extract message size to determine number of frames sent.
+            size = int(re.match(".*Sending message \((.*?)\):.*", line.message).groups()[0])
+            frames = math.ceil(size / 73.0)
+            if "ADV" in line.original:
+                packets_sent[line.addr][0] += frames
+            elif "REQ" in line.original:
+                packets_sent[line.addr][1] += frames
+            elif "DATA" in line.original:
+                packets_sent[line.addr][2] += frames
+    return packets_sent
+
+
 def get_stats(lines):
     # Nodes involved and version upgraded to.
     nodes = get_nodes(lines)
@@ -224,26 +244,8 @@ def get_stats(lines):
     final_times = get_final_times(lines, nodes, total_pages, version)
     time_taken = get_time_taken(nodes, start_times, final_times)
     seeds = get_seeds(time_taken)
-
-    # Packets sent by each node (between earliest start_time and latest completion_time)
-    protocol_start = min(start_times.values())
-    protocol_end = max(final_times.values())
-    # 0: ADV, 1: REQ, 2: DATA
-    packets_sent = dict((node, [0, 0, 0]) for node in nodes)
-    for line in lines:
-        if line.addr and protocol_start <= line.timestamp <= protocol_end and \
-                "Sending message" in line.message:
-            # Extract message size to determine number of frames sent.
-            size = int(re.match(".*Sending message \((.*?)\):.*", line.message).groups()[0])
-            frames = math.ceil(size / 80.0)
-            if "ADV" in line.original:
-                packets_sent[line.addr][0] += frames
-            elif "REQ" in line.original:
-                packets_sent[line.addr][1] += frames
-            elif "DATA" in line.original:
-                packets_sent[line.addr][2] += frames
-
-
+    packets_sent = get_packets_sent(lines, nodes, start_times, final_times)
+    
     print "#####################################################################"
     print "Run starting %s" % lines[0].timestamp.strftime("%Y-%m-%d %H:%M:%S,%f")
     print "#####################################################################"
