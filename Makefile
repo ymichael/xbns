@@ -38,6 +38,9 @@ logs:
 settime:
 	PYTHONPATH=. python app/pong.py -m time --port=$(SERIALPORT) $(ARGS)
 
+settime2:
+	PYTHONPATH=. python app/pong.py -m time2 --port=$(SERIALPORT) $(ARGS)
+
 setpower:
 	PYTHONPATH=. python app/pong.py -m power --port=$(SERIALPORT) --value=$(POWER)
 

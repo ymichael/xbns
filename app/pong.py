@@ -126,6 +126,7 @@ class Mode(object):
     # Utility modes that help ease management of the nodes.
     PING = 'ping'
     TIME = 'time'
+    TIME2 = 'time2'
     POWER = 'power'
 
     # TOPO mode: Get topology information about nodes.
@@ -160,6 +161,10 @@ class Pong(net.layers.application.Application):
         # message.
         self.nodes = None
         self.heard_from = set()
+
+        # Used to set time more accurately
+        self.time_set_sent = None
+        self.pongs = {}
 
     def set_xbee(self, xbee):
         self.xbee = xbee
@@ -217,7 +222,12 @@ class Pong(net.layers.application.Application):
             self.send_pong()
 
         if message.is_pong():
+            self.pongs[sender_addr] = datetime.datetime.now()
             self.heard_from.add(sender_addr)
+            if self.mode == Mode.TIME2:
+                delta = (self.pongs[sender_addr] - self.time_set_sent) / 2
+                if not abs(delta.total_seconds()) < .01:
+                    self._send_time_set(delta=delta, dest_addr=sender_addr)
 
         if message.is_make() and self.mode != Mode.MAKE:
             output = utils.cli.call(["make", message.target])
@@ -332,12 +342,12 @@ class Pong(net.layers.application.Application):
         else:
             # Send directed packets to each node that has not responded.
             for n in (self.nodes - self.heard_from):
-                self._send_time_set(n)
+                self._send_time_set(dest_addr=n)
 
-
-    def _send_time_set(self, dest_addr=net.layers.base.FLOOD_ADDRESS):
+    def _send_time_set(self, delta=None, dest_addr=net.layers.base.FLOOD_ADDRESS):
         time_set = Message.create_time_set(
-            utils.timespec.TimeSpec.get_current_time())
+            utils.timespec.TimeSpec.get_current_time(delta))
+        self.time_set_sent = datetime.datetime.now()
         self._send_message(time_set, dest_addr=dest_addr)
 
     def _send_message(self, message, dest_addr=None):
@@ -378,12 +388,31 @@ def main(args):
             time.sleep(2)
 
         if args.mode == Mode.TIME:
-            app.send_time_set()
+            if args.nodes and len(args.nodes) == 1:
+                if once:
+                    once = False
+                    app._send_time_set(dest_addr=args.nodes[0])
+            else:
+                app.send_time_set()
             time.sleep(2)
+
+        if once and args.mode == Mode.TIME2:
+            once = False
+            if args.nodes and len(args.nodes) == 1:
+                app._send_time_set(dest_addr=args.nodes[0])
+            else:
+                app.send_time_set()
+            time.sleep(5)
 
         if args.mode == Mode.MAKE:
             assert args.target
-            app.send_make(args.target)
+            if args.nodes and len(args.nodes) == 1:
+                if once:
+                    once = False
+                    app._send_make(target=args.target, dest_addr=args.nodes[0])
+            else:
+                app.send_make(args.target)
+            time.sleep(2)
 
         time.sleep(1)
 
@@ -392,7 +421,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Pong Application')
     parser.add_argument('--mode', '-m', type=str, default=Mode.NORMAL,
                         choices=[Mode.NORMAL, Mode.PING, Mode.TIME, Mode.POWER,
-                            Mode.TOPO_REQ, Mode.TOPO_FLOOD, Mode.MAKE])
+                            Mode.TOPO_REQ, Mode.TOPO_FLOOD, Mode.MAKE, Mode.TIME2])
     parser.add_argument('-n', '--nodes', type=int, metavar='NODES', nargs='+',
                         help='The node ids of the nodes in the network.')
     # Power Level.

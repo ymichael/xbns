@@ -17,8 +17,10 @@ class TimeSpec(ctypes.Structure):
         cli.call(["ln", "-s", "/usr/share/zoneinfo/Singapore", "/etc/localtime"])
 
     @staticmethod
-    def get_current_time():
+    def get_current_time(delta=None):
         current_time = datetime.datetime.now()
+        if delta is not None:
+            current_time += delta
         current_milliseconds = current_time.microsecond / 1000
         time_tuple = current_time.timetuple()[:6] + (current_milliseconds,)
         return time_tuple
