@@ -281,7 +281,10 @@ class Manager(net.layers.application.Application):
                 self._send_ctrl(n)
 
     def send_ping(self):
-        if self.nodes is None or not len(self.heard_from):
+        if self.nodes and len(self.nodes) == 1:
+            for n in self.nodes:
+                self._send_ping(n)
+        elif self.nodes is None or not len(self.heard_from):
             self._send_ping()
         elif self.nodes == self.heard_from:
             pass # Don't send if all nodes have responsed.
